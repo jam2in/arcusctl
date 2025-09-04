@@ -3,8 +3,8 @@ package group
 import (
 	"fmt"
 
+	"github.com/go-zookeeper/zk"
 	"github.com/jam2in/arcus-sasl-passwd/config"
-	"github.com/jam2in/arcus-sasl-passwd/internal/zookeeper"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +13,8 @@ var listCmd = &cobra.Command{
 	Short: "List all ACL groups.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		groups, err := listGroups()
+		zkConn := cmd.Context().Value(config.ZkConnKey{}).(*zk.Conn)
+		groups, err := listGroups(zkConn)
 		if err != nil {
 			return err
 		}
@@ -27,13 +28,7 @@ var listCmd = &cobra.Command{
 	},
 }
 
-func listGroups() ([]string, error) {
-	zkConn, err := zookeeper.NewConnect()
-	if err != nil {
-		return nil, err
-	}
-	defer zkConn.Close()
-
+func listGroups(zkConn *zk.Conn) ([]string, error) {
 	groups, _, err := zkConn.Children(config.AclRootPath)
 
 	return groups, err

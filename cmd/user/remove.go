@@ -17,8 +17,10 @@ var removeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
 		userName := args[1]
+		adminUser, _ := cmd.Flags().GetString("userName")
+		adminPassword, _ := cmd.Flags().GetString("password")
 
-		err := removeUser(groupName, userName)
+		err := removeUser(groupName, userName, adminUser, adminPassword)
 		if err != nil {
 			return err
 		}
@@ -28,12 +30,17 @@ var removeCmd = &cobra.Command{
 	},
 }
 
-func removeUser(groupName, userName string) error {
+func removeUser(groupName, userName, adminUser, adminPassword string) error {
 	zkConn, err := zookeeper.NewConnect()
 	if err != nil {
 		return err
 	}
 	defer zkConn.Close()
+
+	_, err = isAuth(zkConn, groupName, adminUser, adminPassword)
+	if err != nil {
+		return err
+	}
 
 	userPath := path.Join(config.AclRootPath, groupName, userName)
 	authPath := path.Join(userPath, propName)

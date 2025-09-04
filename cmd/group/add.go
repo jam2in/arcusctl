@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-zookeeper/zk"
 	"github.com/jam2in/arcus-sasl-passwd/config"
-	"github.com/jam2in/arcus-sasl-passwd/internal/zookeeper"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +15,11 @@ var addCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
-		err := addGroup(groupName)
+		aclUser, _ := cmd.Flags().GetString("userName")
+		aclPassword, _ := cmd.Flags().GetString("password")
+		zkConn := cmd.Context().Value(config.ZkConnKey{}).(*zk.Conn)
+
+		err := addGroup(zkConn, groupName, aclUser, aclPassword)
 		if err != nil {
 			return err
 		}
@@ -26,15 +29,18 @@ var addCmd = &cobra.Command{
 	},
 }
 
-func addGroup(groupName string) error {
-	zkConn, err := zookeeper.NewConnect()
-	if err != nil {
-		return err
-	}
-	defer zkConn.Close()
-
+func addGroup(zkConn *zk.Conn, groupName, aclUser, aclPassword string) error {
 	groupPath := path.Join(config.AclRootPath, groupName)
-	_, err = zkConn.Create(groupPath, nil, 0, zk.WorldACL(zk.PermAll))
+	var acl []zk.ACL
+	if aclUser != "" && aclPassword != "" {
+		adminACL := zk.DigestACL(zk.PermAll, aclUser, aclPassword)
+		worldReadACL := zk.WorldACL(zk.PermRead)
+		acl = append(adminACL, worldReadACL...)
+	} else {
+		acl = zk.WorldACL(zk.PermAll)
+	}
+
+	_, err := zkConn.Create(groupPath, nil, 0, acl)
 
 	return err
 }

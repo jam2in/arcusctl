@@ -22,6 +22,8 @@ var addCmd = &cobra.Command{
 		groupName := args[0]
 		userName := args[1]
 		role := args[2]
+		adminUser, _ := cmd.Flags().GetString("userName")
+		adminPassword, _ := cmd.Flags().GetString("password")
 
 		fmt.Print("Enter Password: ")
 		rawPassword, err := term.ReadPassword(int(syscall.Stdin))
@@ -42,8 +44,7 @@ var addCmd = &cobra.Command{
 		}
 		password := string(rawPassword)
 		secret := scram.GenerateScramSHA256Secret(password, nil, 0)
-
-		err = addUser(groupName, userName, role, secret.EncodeToBase64())
+		err = addUser(groupName, userName, role, secret.EncodeToBase64(), adminUser, adminPassword)
 		if err != nil {
 			return err
 		}
@@ -53,28 +54,36 @@ var addCmd = &cobra.Command{
 	},
 }
 
-func addUser(groupName, userName, role, secret string) error {
+func addUser(groupName, userName, role, secret, adminUser, adminPassword string) error {
 	zkConn, err := zookeeper.NewConnect()
 	if err != nil {
 		return err
 	}
 	defer zkConn.Close()
 
+	acl, err := isAuth(zkConn, groupName, adminUser, adminPassword)
+	if err != nil {
+		return err
+	}
+
 	// ex: /arcus_acl/group/user
 	userPath := path.Join(config.AclRootPath, groupName, userName)
 	// ex: /arcus_acl/group/user/authPassword
 	authPath := path.Join(userPath, propName)
+	for _, a := range acl {
+		fmt.Printf("%s, %s\n", a.ID, a.Scheme)
+	}
 	ops := []interface{}{
 		&zk.CreateRequest{
 			Path:  userPath,
 			Data:  []byte(role),
-			Acl:   zk.WorldACL(zk.PermAll),
+			Acl:   acl,
 			Flags: 0,
 		},
 		&zk.CreateRequest{
 			Path:  authPath,
 			Data:  []byte(secret),
-			Acl:   zk.WorldACL(zk.PermAll),
+			Acl:   acl,
 			Flags: 0,
 		},
 	}
