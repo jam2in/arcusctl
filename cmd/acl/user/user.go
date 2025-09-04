@@ -27,29 +27,23 @@ var UserCmd = &cobra.Command{
 }
 
 func init() {
-
 	UserCmd.AddCommand(listCmd)
 	UserCmd.AddCommand(addCmd)
 	UserCmd.AddCommand(removeCmd)
 }
 
-func isAuth(zkConn *zk.Conn, groupName, adminUser, adminPassword string) ([]zk.ACL, error) {
+func isAuth(zkConn *zk.Conn, groupName, adminUser, adminPassword string) error {
 	groupPath := path.Join(config.AclRootPath, groupName)
 	groupACL, _, err := zkConn.GetACL(groupPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if isDigest(groupACL) {
-		fmt.Println("fhdahpof")
 		if adminUser == "" || adminPassword == "" {
-			return nil, fmt.Errorf("'%s' is private group. Require credentials via -u and -p flags.\n", groupName)
-		}
-		auth := []byte(adminUser + ":" + adminPassword)
-		if err := zkConn.AddAuth("digest", auth); err != nil {
-			return nil, err
+			return fmt.Errorf("'%s' is private group. Require credentials via -u and -p flags", groupName)
 		}
 	}
-	return groupACL, nil
+	return nil
 }
 
 func isDigest(acl []zk.ACL) bool {

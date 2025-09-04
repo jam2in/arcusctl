@@ -34,6 +34,13 @@ var AclCmd = &cobra.Command{
 
 		return nil
 	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		zkConn := cmd.Context().Value(config.ZkConnKey{})
+		if zkConn != nil {
+			zkConn.(*zk.Conn).Close()
+		}
+		return nil
+	},
 }
 
 func init() {

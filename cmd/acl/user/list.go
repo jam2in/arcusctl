@@ -5,8 +5,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/go-zookeeper/zk"
 	"github.com/jam2in/arcus-cli/config"
-	"github.com/jam2in/arcus-cli/internal/zookeeper"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,8 @@ var listCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
-		users, err := listUsers(groupName)
+		zkConn := cmd.Context().Value(config.ZkConnKey{}).(*zk.Conn)
+		users, err := listUsers(zkConn, groupName)
 		if err != nil {
 			return err
 		}
@@ -30,13 +31,7 @@ var listCmd = &cobra.Command{
 	},
 }
 
-func listUsers(groupName string) ([]UserInfo, error) {
-	zkConn, err := zookeeper.NewConnect()
-	if err != nil {
-		return nil, err
-	}
-	defer zkConn.Close()
-
+func listUsers(zkConn *zk.Conn, groupName string) ([]UserInfo, error) {
 	// ex: /arcus_acl/group
 	groupPath := path.Join(config.AclRootPath, groupName)
 	userNames, _, err := zkConn.Children(groupPath)

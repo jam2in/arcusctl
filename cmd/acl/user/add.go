@@ -9,7 +9,6 @@ import (
 	"github.com/go-zookeeper/zk"
 	"github.com/jam2in/arcus-cli/config"
 	"github.com/jam2in/arcus-cli/internal/scram"
-	"github.com/jam2in/arcus-cli/internal/zookeeper"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -22,8 +21,9 @@ var addCmd = &cobra.Command{
 		groupName := args[0]
 		userName := args[1]
 		role := args[2]
-		adminUser, _ := cmd.Flags().GetString("userName")
-		adminPassword, _ := cmd.Flags().GetString("password")
+		aclUser, _ := cmd.Flags().GetString("userName")
+		aclPassword, _ := cmd.Flags().GetString("password")
+		zkConn := cmd.Context().Value(config.ZkConnKey{}).(*zk.Conn)
 
 		fmt.Print("Enter Password: ")
 		rawPassword, err := term.ReadPassword(int(syscall.Stdin))
@@ -44,7 +44,7 @@ var addCmd = &cobra.Command{
 		}
 		password := string(rawPassword)
 		secret := scram.GenerateScramSHA256Secret(password, nil, 0)
-		err = addUser(groupName, userName, role, secret.EncodeToBase64(), adminUser, adminPassword)
+		err = addUser(zkConn, groupName, userName, role, secret.EncodeToBase64(), aclUser, aclPassword)
 		if err != nil {
 			return err
 		}
@@ -54,14 +54,8 @@ var addCmd = &cobra.Command{
 	},
 }
 
-func addUser(groupName, userName, role, secret, adminUser, adminPassword string) error {
-	zkConn, err := zookeeper.NewConnect()
-	if err != nil {
-		return err
-	}
-	defer zkConn.Close()
-
-	acl, err := isAuth(zkConn, groupName, adminUser, adminPassword)
+func addUser(zkConn *zk.Conn, groupName, userName, role, secret, aclUser, aclPassword string) error {
+	err := isAuth(zkConn, groupName, aclUser, aclPassword)
 	if err != nil {
 		return err
 	}
@@ -70,9 +64,16 @@ func addUser(groupName, userName, role, secret, adminUser, adminPassword string)
 	userPath := path.Join(config.AclRootPath, groupName, userName)
 	// ex: /arcus_acl/group/user/authPassword
 	authPath := path.Join(userPath, propName)
-	for _, a := range acl {
-		fmt.Printf("%s, %s\n", a.ID, a.Scheme)
+
+	var acl []zk.ACL
+	if aclUser != "" && aclPassword != "" {
+		adminACL := zk.DigestACL(zk.PermAll, aclUser, aclPassword)
+		worldReadACL := zk.WorldACL(zk.PermRead)
+		acl = append(adminACL, worldReadACL...)
+	} else {
+		acl = zk.WorldACL(zk.PermAll)
 	}
+
 	ops := []interface{}{
 		&zk.CreateRequest{
 			Path:  userPath,

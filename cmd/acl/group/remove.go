@@ -15,11 +15,9 @@ var removeCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
-		adminUser, _ := cmd.Flags().GetString("userName")
-		adminPassword, _ := cmd.Flags().GetString("password")
 		zkConn := cmd.Context().Value(config.ZkConnKey{}).(*zk.Conn)
 
-		err := removeGroup(zkConn, groupName, adminUser, adminPassword)
+		err := removeGroup(zkConn, groupName)
 		if err != nil {
 			return err
 		}
@@ -35,26 +33,8 @@ func init() {
 	removeCmd.MarkFlagsRequiredTogether("userName", "password")
 }
 
-func removeGroup(zkConn *zk.Conn, groupName, adminUser, adminPassword string) error {
+func removeGroup(zkConn *zk.Conn, groupName string) error {
 	groupPath := path.Join(config.AclRootPath, groupName)
-	groupACL, _, err := zkConn.GetACL(groupPath)
-	if err != nil {
-		return err
-	}
-	if isDigest(groupACL) {
-		if adminUser == "" || adminPassword == "" {
-			return fmt.Errorf("'%s' is private group. Require credentials via -u and -p flags.\n", groupName)
-		}
-	}
-	err = zkConn.Delete(groupPath, -1)
+	err := zkConn.Delete(groupPath, -1)
 	return err
-}
-
-func isDigest(acl []zk.ACL) bool {
-	for _, a := range acl {
-		if a.Scheme == "digest" {
-			return true
-		}
-	}
-	return false
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-zookeeper/zk"
 	"github.com/jam2in/arcus-cli/config"
-	"github.com/jam2in/arcus-cli/internal/zookeeper"
 	"github.com/spf13/cobra"
 )
 
@@ -17,10 +16,11 @@ var removeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
 		userName := args[1]
-		adminUser, _ := cmd.Flags().GetString("userName")
-		adminPassword, _ := cmd.Flags().GetString("password")
+		aclUser, _ := cmd.Flags().GetString("userName")
+		aclPassword, _ := cmd.Flags().GetString("password")
+		zkConn := cmd.Context().Value(config.ZkConnKey{}).(*zk.Conn)
 
-		err := removeUser(groupName, userName, adminUser, adminPassword)
+		err := removeUser(zkConn, groupName, userName, aclUser, aclPassword)
 		if err != nil {
 			return err
 		}
@@ -30,14 +30,8 @@ var removeCmd = &cobra.Command{
 	},
 }
 
-func removeUser(groupName, userName, adminUser, adminPassword string) error {
-	zkConn, err := zookeeper.NewConnect()
-	if err != nil {
-		return err
-	}
-	defer zkConn.Close()
-
-	_, err = isAuth(zkConn, groupName, adminUser, adminPassword)
+func removeUser(zkConn *zk.Conn, groupName, userName, aclUser, aclPassword string) error {
+	err := isAuth(zkConn, groupName, aclUser, aclPassword)
 	if err != nil {
 		return err
 	}
