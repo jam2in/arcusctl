@@ -2,11 +2,10 @@ package user
 
 import (
 	"fmt"
-	"path"
+	"os"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/config"
-	"github.com/jam2in/arcus-cli/internal/zookeeper"
+	"github.com/jam2in/arcus-cli/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -14,42 +13,26 @@ var removeCmd = &cobra.Command{
 	Use:   "remove <groupName> <userName>",
 	Short: "Remove a user from an ACL group.",
 	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
 		userName := args[1]
-		adminUser, _ := cmd.Flags().GetString("userName")
-		adminPassword, _ := cmd.Flags().GetString("password")
 
-		err := removeUser(groupName, userName, adminUser, adminPassword)
-		if err != nil {
-			return err
+		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
+
+		if _, err := zkConn.Multi(
+			&zk.DeleteRequest{
+				Path:    internal.AclRootPath + "/" + groupName + "/" + userName + "/" + propName,
+				Version: -1,
+			},
+			&zk.DeleteRequest{
+				Path:    internal.AclRootPath + "/" + groupName + "/" + userName,
+				Version: -1,
+			},
+		); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 
 		fmt.Printf("User '%s' removed from group '%s' successfully.\n", userName, groupName)
-		return nil
 	},
-}
-
-func removeUser(groupName, userName, adminUser, adminPassword string) error {
-	zkConn, err := zookeeper.NewConnect()
-	if err != nil {
-		return err
-	}
-	defer zkConn.Close()
-
-	_, err = isAuth(zkConn, groupName, adminUser, adminPassword)
-	if err != nil {
-		return err
-	}
-
-	userPath := path.Join(config.AclRootPath, groupName, userName)
-	authPath := path.Join(userPath, propName)
-
-	ops := []interface{}{
-		&zk.DeleteRequest{Path: authPath, Version: -1},
-		&zk.DeleteRequest{Path: userPath, Version: -1},
-	}
-	_, err = zkConn.Multi(ops...)
-
-	return err
 }

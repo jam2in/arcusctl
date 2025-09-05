@@ -2,10 +2,7 @@ package user
 
 import (
 	"fmt"
-	"path"
 
-	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -27,36 +24,7 @@ var UserCmd = &cobra.Command{
 }
 
 func init() {
-
 	UserCmd.AddCommand(listCmd)
 	UserCmd.AddCommand(addCmd)
 	UserCmd.AddCommand(removeCmd)
-}
-
-func isAuth(zkConn *zk.Conn, groupName, adminUser, adminPassword string) ([]zk.ACL, error) {
-	groupPath := path.Join(config.AclRootPath, groupName)
-	groupACL, _, err := zkConn.GetACL(groupPath)
-	if err != nil {
-		return nil, err
-	}
-	if isDigest(groupACL) {
-		fmt.Println("fhdahpof")
-		if adminUser == "" || adminPassword == "" {
-			return nil, fmt.Errorf("'%s' is private group. Require credentials via -u and -p flags.\n", groupName)
-		}
-		auth := []byte(adminUser + ":" + adminPassword)
-		if err := zkConn.AddAuth("digest", auth); err != nil {
-			return nil, err
-		}
-	}
-	return groupACL, nil
-}
-
-func isDigest(acl []zk.ACL) bool {
-	for _, a := range acl {
-		if a.Scheme == "digest" {
-			return true
-		}
-	}
-	return false
 }

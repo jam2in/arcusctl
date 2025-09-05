@@ -2,10 +2,10 @@ package group
 
 import (
 	"fmt"
-	"path"
+	"os"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/config"
+	"github.com/jam2in/arcus-cli/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -13,34 +13,18 @@ var addCmd = &cobra.Command{
 	Use:   "add <groupName>",
 	Short: "Add a new ACL group.",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
-		aclUser, _ := cmd.Flags().GetString("userName")
-		aclPassword, _ := cmd.Flags().GetString("password")
-		zkConn := cmd.Context().Value(config.ZkConnKey{}).(*zk.Conn)
 
-		err := addGroup(zkConn, groupName, aclUser, aclPassword)
+		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
+		acl := cmd.Context().Value(internal.CtxZkAclKey{}).([]zk.ACL)
+
+		_, err := zkConn.Create(internal.AclRootPath+"/"+groupName, nil, 0, acl)
 		if err != nil {
-			return err
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 
 		fmt.Printf("ACL group '%s' created successfully.\n", groupName)
-		return nil
 	},
-}
-
-func addGroup(zkConn *zk.Conn, groupName, aclUser, aclPassword string) error {
-	groupPath := path.Join(config.AclRootPath, groupName)
-	var acl []zk.ACL
-	if aclUser != "" && aclPassword != "" {
-		adminACL := zk.DigestACL(zk.PermAll, aclUser, aclPassword)
-		worldReadACL := zk.WorldACL(zk.PermRead)
-		acl = append(adminACL, worldReadACL...)
-	} else {
-		acl = zk.WorldACL(zk.PermAll)
-	}
-
-	_, err := zkConn.Create(groupPath, nil, 0, acl)
-
-	return err
 }

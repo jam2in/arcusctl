@@ -2,11 +2,12 @@ package user
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
-	"github.com/jam2in/arcus-cli/config"
-	"github.com/jam2in/arcus-cli/internal/zookeeper"
+	"github.com/go-zookeeper/zk"
+	"github.com/jam2in/arcus-cli/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -14,11 +15,15 @@ var listCmd = &cobra.Command{
 	Use:   "list <groupName>",
 	Short: "List all users in an ACL group.",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
-		users, err := listUsers(groupName)
+
+		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
+
+		users, err := listUsers(zkConn, groupName)
 		if err != nil {
-			return err
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 
 		fmt.Printf("Users in group '%s':\n", groupName)
@@ -26,23 +31,17 @@ var listCmd = &cobra.Command{
 			fmt.Printf("  %d. %s\n", i+1, u)
 		}
 		fmt.Printf("Total %d users in group '%s'.\n", len(users), groupName)
-		return nil
 	},
 }
 
-func listUsers(groupName string) ([]UserInfo, error) {
-	zkConn, err := zookeeper.NewConnect()
-	if err != nil {
-		return nil, err
-	}
-	defer zkConn.Close()
+func listUsers(zkConn *zk.Conn, groupName string) ([]UserInfo, error) {
+	groupPath := internal.AclRootPath + "/" + groupName
 
-	// ex: /arcus_acl/group
-	groupPath := path.Join(config.AclRootPath, groupName)
 	userNames, _, err := zkConn.Children(groupPath)
 	if err != nil {
 		return nil, err
 	}
+
 	users := make([]UserInfo, 0, len(userNames))
 	for _, userName := range userNames {
 		userPath := path.Join(groupPath, userName)
