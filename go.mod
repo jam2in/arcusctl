@@ -1,4 +1,4 @@
-module github.com/jam2in/arcus-sasl-passwd
+module github.com/jam2in/arcus-cli
 
 go 1.24.6
 

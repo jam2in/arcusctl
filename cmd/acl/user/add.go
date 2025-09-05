@@ -7,9 +7,9 @@ import (
 	"syscall"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-sasl-passwd/config"
-	"github.com/jam2in/arcus-sasl-passwd/internal/scram"
-	"github.com/jam2in/arcus-sasl-passwd/internal/zookeeper"
+	"github.com/jam2in/arcus-cli/config"
+	"github.com/jam2in/arcus-cli/internal/scram"
+	"github.com/jam2in/arcus-cli/internal/zookeeper"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )

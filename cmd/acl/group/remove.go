@@ -5,7 +5,7 @@ import (
 	"path"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-sasl-passwd/config"
+	"github.com/jam2in/arcus-cli/config"
 	"github.com/spf13/cobra"
 )
 
