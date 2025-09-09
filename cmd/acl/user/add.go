@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/go-zookeeper/zk"
@@ -14,62 +15,88 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:   "add <groupName> <userName> <role>",
+	Use:   "add <groupName> <userName[:password]:role>",
 	Short: "Add a new user to an ACL group.",
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
-		userName := args[1]
-		role := args[2]
-
-		password, err := readPassword()
-		if err != nil {
-			panic(err) // FIXME
-		}
-		secret := scram.GenerateScramSHA256Secret(password, nil, 0)
+		userArgs := args[1:]
 
 		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
 		acl := cmd.Context().Value(internal.CtxZkAclKey{}).([]zk.ACL)
 
-		if _, err := zkConn.Multi(
-			&zk.CreateRequest{
-				Path:  internal.AclRootPath + "/" + groupName + "/" + userName,
-				Data:  []byte(role),
-				Acl:   acl,
-				Flags: 0,
-			},
-			&zk.CreateRequest{
-				Path:  internal.AclRootPath + "/" + groupName + "/" + userName + "/" + propName,
-				Data:  []byte(secret.EncodeToBase64()),
-				Acl:   acl,
-				Flags: 0,
-			},
-		); err != nil {
+		requests := make([]any, 0, 2*len(userArgs))
+		var err error
+		for _, arg := range userArgs {
+			requests, err = appendRequests(requests, groupName, arg, acl)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		}
+
+		if _, err := zkConn.Multi(requests...); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-
-		fmt.Printf("User '%s' added to group '%s' successfully.\n", userName, groupName)
 	},
 }
 
-func readPassword() (string, error) {
+func readPassword() string {
 	fmt.Print("Enter Password: ")
 	rawPassword, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 	fmt.Println()
 
 	fmt.Print("Repeat Password: ")
 	repeatPassword, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 	fmt.Println()
 
 	if !bytes.Equal(rawPassword, repeatPassword) {
-		return "", fmt.Errorf("passwords do not match")
+		panic("passwords do not match")
 	}
-	return string(rawPassword), nil
+	return string(rawPassword)
+}
+
+func appendRequests(requests []any, group, arg string, acl []zk.ACL) ([]any, error) {
+	tokens := strings.Split(arg, ":")
+	var user, password, role string
+	switch len(tokens) {
+	case 2:
+		user = tokens[0]
+		password = readPassword()
+		role = tokens[1]
+	case 3:
+		user = tokens[0]
+		password = tokens[1]
+		role = tokens[2]
+	default:
+		return nil, fmt.Errorf("invalid argument format: %s", arg)
+	}
+
+	if user == "" || password == "" || role == "" {
+		// TODO: validate role
+		return nil, fmt.Errorf("invalid argument format: %s", arg)
+	}
+
+	secret := scram.GenerateScramSHA256Secret(password, nil, 0)
+	return append(requests,
+		&zk.CreateRequest{
+			Path:  internal.AclRootPath + "/" + group + "/" + user,
+			Data:  []byte(role),
+			Acl:   acl,
+			Flags: 0,
+		},
+		&zk.CreateRequest{
+			Path:  internal.AclRootPath + "/" + group + "/" + user + "/" + propName,
+			Data:  []byte(secret.EncodeToBase64()),
+			Acl:   acl,
+			Flags: 0,
+		},
+	), nil
 }
