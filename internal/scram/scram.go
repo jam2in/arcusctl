@@ -23,7 +23,7 @@ type ScramSecret struct {
 
 func GenerateScramSHA256Secret(password string, salt []byte, iterationCount int) ScramSecret {
 	if salt == nil {
-		salt := make([]byte, defaultSaltLength)
+		salt = make([]byte, defaultSaltLength)
 		if _, err := rand.Read(salt); err != nil {
 			panic(err)
 		}
