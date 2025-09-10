@@ -14,6 +14,18 @@ import (
 	"golang.org/x/term"
 )
 
+var roles = map[string]struct{}{
+	"kv":    {},
+	"list":  {},
+	"set":   {},
+	"map":   {},
+	"btree": {},
+	"attr":  {},
+	"scan":  {},
+	"flush": {},
+	"admin": {},
+}
+
 var addCmd = &cobra.Command{
 	Use:   "add <groupName> <userName[:password]:role>",
 	Short: "Add a new user to an ACL group.",
@@ -63,6 +75,24 @@ func readPassword() string {
 	return string(rawPassword)
 }
 
+func validateRoles(role string) error {
+	if role == "" {
+		return fmt.Errorf("role cannot be empty")
+	}
+
+	seenRoles := make(map[string]struct{})
+	for _, r := range strings.Split(role, ",") {
+		if _, ok := roles[r]; !ok {
+			return fmt.Errorf("invalid role found: %s", r)
+		}
+		if _, seen := seenRoles[r]; seen {
+			return fmt.Errorf("duplicate role found: %s", r)
+		}
+		seenRoles[r] = struct{}{}
+	}
+	return nil
+}
+
 func appendRequests(requests []any, group, arg string, acl []zk.ACL) ([]any, error) {
 	tokens := strings.Split(arg, ":")
 	var user, password, role string
@@ -79,9 +109,10 @@ func appendRequests(requests []any, group, arg string, acl []zk.ACL) ([]any, err
 		return nil, fmt.Errorf("invalid argument format: %s", arg)
 	}
 
-	if user == "" || password == "" || role == "" {
-		// TODO: validate role
-		return nil, fmt.Errorf("invalid argument format: %s", arg)
+	if user == "" || password == "" {
+		return nil, fmt.Errorf("user & password cannot be empty: %s", arg)
+	} else if err := validateRoles(role); err != nil {
+		return nil, err
 	}
 
 	secret := scram.GenerateScramSHA256Secret(password, nil, 0)
