@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/jam2in/arcus-cli/cmd/acl"
+	"github.com/jam2in/arcus-cli/cmd/memcached"
 	"github.com/jam2in/arcus-cli/cmd/zookeeper"
 	"github.com/spf13/cobra"
 )
@@ -18,6 +19,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(acl.AclCmd)
 	rootCmd.AddCommand(zookeeper.ZookeeperCmd)
+	rootCmd.AddCommand(memcached.MemcachedCmd)
 }
 
 func Execute() {
