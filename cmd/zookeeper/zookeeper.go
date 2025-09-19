@@ -6,6 +6,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	zookeeperStartCommandTemplate = "%s/bin/zkServer.sh start"
+	zookeeperStopCommandTemplate  = "%s/bin/zkServer.sh stop"
+)
+
 var ZookeeperCmd = &cobra.Command{
 	Use:   "zookeeper",
 	Short: "A CLI tool for zookeeper commands",
@@ -29,4 +34,7 @@ var ZookeeperCmd = &cobra.Command{
 
 func init() {
 	ZookeeperCmd.AddCommand(initCmd)
+	ZookeeperCmd.AddCommand(startCmd)
+	ZookeeperCmd.AddCommand(statCmd)
+	ZookeeperCmd.AddCommand(stopCmd)
 }

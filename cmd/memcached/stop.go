@@ -42,19 +42,12 @@ var stopCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			client, err := internal.NewSSHClient(ip)
+			session, close, err := internal.NewSSHSession(ip)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			defer client.Close()
-
-			session, err := client.NewSession()
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer session.Close()
+			defer close()
 
 			pidFilePath := fmt.Sprintf("%s/memcached-%s.pid", os.Getenv("ARCUS_PATH"), port)
 			command := fmt.Sprintf("kill -INT $(cat %s)", pidFilePath)

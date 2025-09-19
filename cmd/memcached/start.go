@@ -52,19 +52,12 @@ var startCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			client, err := internal.NewSSHClient(ip)
+			session, close, err := internal.NewSSHSession(ip)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			defer client.Close()
-
-			session, err := client.NewSession()
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer session.Close()
+			defer close()
 
 			memcachedPath := os.Getenv("ARCUS_PATH")
 			command := fmt.Sprintf(memcachedStartCommandTemplate,
