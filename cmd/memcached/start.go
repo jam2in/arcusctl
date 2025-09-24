@@ -69,7 +69,7 @@ var startCmd = &cobra.Command{
 			memcachedPath := os.Getenv("ARCUS_PATH")
 			command := fmt.Sprintf(memcachedStartCommandTemplate,
 				memcachedPath, memcachedPath, memcachedPath, memcachedPath, memcachedPath,
-				port, string(globalConfig), os.Getenv("ZK_ADDR"))
+				port, string(globalConfig), os.Getenv("ZK_LIST"))
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()

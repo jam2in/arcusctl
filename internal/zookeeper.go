@@ -39,7 +39,7 @@ var arcusBasicPaths = []string{
 }
 
 func ContextWithZkConn(ctx context.Context, user, password string) (context.Context, error) {
-	addr := os.Getenv("ZK_ADDR")
+	addr := os.Getenv("ZK_LIST")
 	if addr == "" {
 		return nil, fmt.Errorf("ZooKeeper address is not set")
 	}
