@@ -1,4 +1,4 @@
-package internal
+package ssh
 
 import (
 	"os"
@@ -33,4 +33,20 @@ func NewSSHClient(ip string) (*ssh.Client, error) {
 	}
 
 	return ssh.Dial("tcp", ip+":22", sshConfig)
+}
+
+func RunSSHCommand(ip, command string) error {
+	client, err := NewSSHClient(ip)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	return session.Run(command)
 }

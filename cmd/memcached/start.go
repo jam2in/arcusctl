@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"strings"
 	"time"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/memcached"
+	"github.com/jam2in/arcus-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -20,15 +20,16 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		serviceCode := args[0]
 		targetServers := args[1:]
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
+		memcachedPath := os.Getenv("ARCUS_PATH")
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
 
-		globalConfig, _, err := zkConn.Get(path.Join(internal.ArcusCacheListPath, serviceCode))
+		globalConfig, err := memcached.GetClusterConfig(zkConn, serviceCode)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 
-		serviceCodeServers, err := getServiceCodeServers(zkConn, serviceCode)
+		serviceCodeServers, err := memcached.GetServiceCodeServers(zkConn, serviceCode)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -52,30 +53,11 @@ var startCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			client, err := internal.NewSSHClient(ip)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer client.Close()
-
-			session, err := client.NewSession()
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer session.Close()
-
-			memcachedPath := os.Getenv("ARCUS_PATH")
-			command := fmt.Sprintf(memcachedStartCommandTemplate,
-				memcachedPath, memcachedPath, memcachedPath, memcachedPath, memcachedPath,
-				port, string(globalConfig), os.Getenv("ZK_ADDR"))
-
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			errChan := make(chan error, 1)
 			go func() {
-				errChan <- session.Run(command)
+				errChan <- memcached.StartMemcachedProcess(os.Getenv("ZK_ADDR"), ip, port, memcachedPath, string(globalConfig))
 			}()
 			select {
 			case err := <-errChan:

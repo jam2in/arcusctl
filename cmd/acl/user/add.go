@@ -8,8 +8,8 @@ import (
 	"syscall"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
-	"github.com/jam2in/arcus-cli/internal/scram"
+	"github.com/jam2in/arcus-cli/internal/acl"
+	"github.com/jam2in/arcus-cli/internal/types"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -33,23 +33,16 @@ var addCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
 		userArgs := args[1:]
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
+		zkAcl := cmd.Context().Value(types.CtxZkAclKey{}).([]zk.ACL)
 
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
-		acl := cmd.Context().Value(internal.CtxZkAclKey{}).([]zk.ACL)
-
-		requests := make([]any, 0, 2*len(userArgs))
 		var err error
 		for _, arg := range userArgs {
-			requests, err = appendRequests(requests, groupName, arg, acl)
+			err = addUserRequest(zkConn, zkAcl, groupName, arg)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-		}
-
-		if _, err := zkConn.Multi(requests...); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
 		}
 	},
 }
@@ -93,7 +86,7 @@ func validateRoles(role string) error {
 	return nil
 }
 
-func appendRequests(requests []any, group, arg string, acl []zk.ACL) ([]any, error) {
+func addUserRequest(zkConn *zk.Conn, zkAcl []zk.ACL, group, arg string) error {
 	tokens := strings.Split(arg, ":")
 	var user, password, role string
 	switch len(tokens) {
@@ -106,28 +99,14 @@ func appendRequests(requests []any, group, arg string, acl []zk.ACL) ([]any, err
 		password = tokens[1]
 		role = tokens[2]
 	default:
-		return nil, fmt.Errorf("invalid argument format: %s", arg)
+		return fmt.Errorf("invalid argument format: %s", arg)
 	}
 
 	if user == "" || password == "" {
-		return nil, fmt.Errorf("user & password cannot be empty: %s", arg)
+		return fmt.Errorf("user & password cannot be empty: %s", arg)
 	} else if err := validateRoles(role); err != nil {
-		return nil, err
+		return err
 	}
 
-	secret := scram.GenerateScramSHA256Secret(password, nil, 0)
-	return append(requests,
-		&zk.CreateRequest{
-			Path:  internal.AclRootPath + "/" + group + "/" + user,
-			Data:  []byte(role),
-			Acl:   acl,
-			Flags: 0,
-		},
-		&zk.CreateRequest{
-			Path:  internal.AclRootPath + "/" + group + "/" + user + "/" + propName,
-			Data:  []byte(secret.EncodeToBase64()),
-			Acl:   acl,
-			Flags: 0,
-		},
-	), nil
+	return acl.AddUser(zkConn, zkAcl, group, user, password, role)
 }

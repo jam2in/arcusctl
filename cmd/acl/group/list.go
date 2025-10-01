@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/acl"
+	"github.com/jam2in/arcus-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -14,9 +15,9 @@ var listCmd = &cobra.Command{
 	Short: "List all ACL groups.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
 
-		groups, _, err := zkConn.Children(internal.AclRootPath)
+		groups, err := acl.GetGroups(zkConn)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

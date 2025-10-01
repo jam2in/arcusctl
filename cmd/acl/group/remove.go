@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/acl"
+	"github.com/jam2in/arcus-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -15,10 +16,9 @@ var removeCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
 
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
-
-		if err := zkConn.Delete(internal.AclRootPath+"/"+groupName, -1); err != nil {
+		if err := acl.RemoveGroup(zkConn, groupName); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

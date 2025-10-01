@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/acl"
+	"github.com/jam2in/arcus-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -15,16 +16,13 @@ var addCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
+		zkAcl := cmd.Context().Value(types.CtxZkAclKey{}).([]zk.ACL)
 
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
-		acl := cmd.Context().Value(internal.CtxZkAclKey{}).([]zk.ACL)
-
-		_, err := zkConn.Create(internal.AclRootPath+"/"+groupName, nil, 0, acl)
-		if err != nil {
+		if err := acl.AddGroup(zkConn, zkAcl, groupName); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-
 		fmt.Printf("ACL group '%s' created successfully.\n", groupName)
 	},
 }

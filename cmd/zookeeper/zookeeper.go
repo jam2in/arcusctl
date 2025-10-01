@@ -2,7 +2,8 @@ package zookeeper
 
 import (
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/types"
+	"github.com/jam2in/arcus-cli/internal/zookeeper"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +14,7 @@ var ZookeeperCmd = &cobra.Command{
 		"This includes initializing the required znode directory layout. that Arcus\n" +
 		"and controlling the lifecycle of the Zookeeper cluster.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		ctx, err := internal.ContextWithZkConn(cmd.Context(), "", "")
+		ctx, err := zookeeper.ContextWithZkConn(cmd.Context(), "", "")
 		if err != nil {
 			return err
 		}
@@ -22,7 +23,7 @@ var ZookeeperCmd = &cobra.Command{
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
 		zkConn.Close()
 	},
 }

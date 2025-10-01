@@ -3,11 +3,11 @@ package memcached
 import (
 	"fmt"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/memcached"
+	"github.com/jam2in/arcus-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -17,20 +17,12 @@ var configCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		serviceCode := args[0]
-		newData := []byte(strings.Join(args[1:], " "))
-		cacheListPath := path.Join(internal.ArcusCacheListPath, serviceCode)
+		options := strings.Join(args[1:], " ")
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
 
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
-		exists, _, err := zkConn.Exists(cacheListPath)
-		if err != nil {
+		if err := memcached.SetClusterConfig(zkConn, serviceCode, options); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
-		}
-		if exists {
-			if _, err := zkConn.Set(cacheListPath, newData, -1); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
 		}
 		fmt.Printf("Global config for service '%s' has been updated\n", serviceCode)
 	},

@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/memcached"
+	"github.com/jam2in/arcus-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -17,9 +18,9 @@ var stopCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		serviceCode := args[0]
 		targetServers := args[1:]
-		zkConn := cmd.Context().Value(internal.CtxZkConnKey{}).(*zk.Conn)
+		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
 
-		serviceCodeServers, err := getServiceCodeServers(zkConn, serviceCode)
+		serviceCodeServers, err := memcached.GetServiceCodeServers(zkConn, serviceCode)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -41,24 +42,7 @@ var stopCmd = &cobra.Command{
 				fmt.Fprintln(os.Stderr, "Invalid server address:", serverAddress)
 				os.Exit(1)
 			}
-
-			client, err := internal.NewSSHClient(ip)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer client.Close()
-
-			session, err := client.NewSession()
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			defer session.Close()
-
-			pidFilePath := fmt.Sprintf("%s/memcached-%s.pid", os.Getenv("ARCUS_PATH"), port)
-			command := fmt.Sprintf("kill -INT $(cat %s)", pidFilePath)
-			if err := session.Run(command); err != nil {
+			if err := memcached.StopMemcachedProcess(ip, port, os.Getenv("ARCUS_PATH")); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
