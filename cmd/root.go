@@ -7,6 +7,7 @@ import (
 	"github.com/jam2in/arcus-cli/cmd/acl"
 	"github.com/jam2in/arcus-cli/cmd/memcached"
 	"github.com/jam2in/arcus-cli/cmd/zookeeper"
+	"github.com/jam2in/arcus-cli/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -17,9 +18,14 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVarP(&internal.Flags.Verbose, "verbose", "v", false, "")
+	rootCmd.PersistentFlags().StringVar(&internal.Flags.ConfigFile, "config-file", "", "")
+
 	rootCmd.AddCommand(acl.AclCmd)
 	rootCmd.AddCommand(zookeeper.ZookeeperCmd)
 	rootCmd.AddCommand(memcached.MemcachedCmd)
+
+	cobra.OnInitialize(internal.InitConfig)
 }
 
 func Execute() {
