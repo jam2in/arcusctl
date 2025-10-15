@@ -1,0 +1,25 @@
+kind: AclGroup
+
+zookeeper: zookeeper.gcp.namsic.dev:2181
+
+group:
+  name: sample
+  adminUsername: sampleAdmin
+
+users:
+  - username: app
+    permissions:
+      - kv
+      - list
+      - set
+      - map
+      - btree
+      - attr
+      - flush
+
+  - username: bob
+    permissions:
+      - admin
+      - attr
+      - flush
+    auditLogAll: true

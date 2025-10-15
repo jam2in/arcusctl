@@ -10,6 +10,10 @@ const (
 	PropName = "authPassword"
 )
 
+var (
+	Verbose bool
+)
+
 var ArcusBasicPaths = []string{
 	ArcusRootPath,
 	AclRootPath,

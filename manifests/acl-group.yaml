@@ -1,0 +1,25 @@
+kind: AclGroup
+
+zookeeper: localhost:2181
+
+group:
+  name: sample
+  adminUserName: sampleAdmin
+
+users:
+  - username: app
+    permissions:
+      - kv
+      - list
+      - set
+      - map
+      - btree
+      - attr
+      - flush
+
+  - username: alice
+    permissions:
+      - admin
+      - attr
+      - flush
+    auditLogAll: true

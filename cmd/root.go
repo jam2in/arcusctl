@@ -1,30 +1,27 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/jam2in/arcus-cli/cmd/acl"
-	"github.com/jam2in/arcus-cli/cmd/memcached"
-	"github.com/jam2in/arcus-cli/cmd/zookeeper"
+	"github.com/jam2in/arcus-cli/cmd/apply"
+	"github.com/jam2in/arcus-cli/cmd/show"
+	"github.com/jam2in/arcus-cli/config"
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "arcus-cli",
-	Short: "Arcus CLI",
-	Long:  "Arcus CLI is a command line interface for managing Arcus",
-}
+var (
+	rootCmd = &cobra.Command{
+		Use:   "arcus-cli",
+		Short: "Arcus CLI",
+		Long:  "Arcus CLI is a command line interface for managing Arcus",
+	}
+)
 
 func init() {
-	rootCmd.AddCommand(acl.AclCmd)
-	rootCmd.AddCommand(zookeeper.ZookeeperCmd)
-	rootCmd.AddCommand(memcached.MemcachedCmd)
+	rootCmd.PersistentFlags().BoolVarP(&config.Verbose, "verbose", "v", false, "verbose output")
+
+	rootCmd.AddCommand(apply.RootCmd)
+	rootCmd.AddCommand(show.RootCmd)
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+func Execute() error {
+	return rootCmd.Execute()
 }
