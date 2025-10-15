@@ -10,29 +10,6 @@ import (
 	"github.com/jam2in/arcus-cli/internal/types"
 )
 
-func AddGroup(zkConn *zk.Conn, zkAcl []zk.ACL, groupName string) error {
-	_, err := zkConn.Create(config.AclRootPath+"/"+groupName, nil, 0, zkAcl)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func RemoveGroup(zkConn *zk.Conn, groupName string) error {
-	if err := zkConn.Delete(config.AclRootPath+"/"+groupName, -1); err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetGroups(zkConn *zk.Conn) ([]string, error) {
-	groups, _, err := zkConn.Children(config.AclRootPath)
-	if err != nil {
-		return nil, err
-	}
-	return groups, nil
-}
-
 func AddUser(zkConn *zk.Conn, zkAcl []zk.ACL, groupName, userName, password, role string) error {
 	secret := scram.GenerateScramSHA256Secret(password, nil, 0)
 	ops := []any{

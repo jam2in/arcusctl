@@ -2,31 +2,29 @@ package group
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal/acl"
-	"github.com/jam2in/arcus-cli/internal/types"
+	"github.com/jam2in/arcus-cli/internal"
 	"github.com/spf13/cobra"
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all ACL groups.",
-	Args:  cobra.NoArgs,
+	Use:  "list",
+	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
-
-		groups, err := acl.GetGroups(zkConn)
+		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			panic(err)
+		}
+		defer conn.Close()
+
+		groups, _, err := conn.Children(internal.ZPATH_ACL_ROOT)
+		if err != nil {
+			panic(err)
 		}
 
-		fmt.Println("ACL Groups:")
-		for i, g := range groups {
-			fmt.Printf("  %d. %s\n", i+1, g)
+		for _, g := range groups {
+			fmt.Printf("  * %s\n", g)
 		}
-		fmt.Printf("Total %d groups.\n", len(groups))
+		fmt.Printf("Total: %d\n", len(groups))
 	},
 }

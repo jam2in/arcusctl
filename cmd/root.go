@@ -21,7 +21,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&internal.Flags.Verbose, "verbose", "v", false, "")
 	rootCmd.PersistentFlags().StringVar(&internal.Flags.ConfigFile, "config-file", "", "")
 
-	rootCmd.AddCommand(acl.AclCmd)
+	rootCmd.AddCommand(acl.RootCmd)
 	rootCmd.AddCommand(zookeeper.ZookeeperCmd)
 	rootCmd.AddCommand(memcached.MemcachedCmd)
 
