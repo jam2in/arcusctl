@@ -33,7 +33,6 @@ func init() {
 	MemcachedCmd.AddCommand(addCmd)
 	MemcachedCmd.AddCommand(removeCmd)
 	MemcachedCmd.AddCommand(configCmd)
-	MemcachedCmd.AddCommand(connectCmd)
 	MemcachedCmd.AddCommand(listCmd)
 	MemcachedCmd.AddCommand(startCmd)
 	MemcachedCmd.AddCommand(stopCmd)
