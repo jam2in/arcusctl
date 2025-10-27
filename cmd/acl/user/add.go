@@ -1,112 +1,126 @@
 package user
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-	"strings"
-	"syscall"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal/acl"
-	"github.com/jam2in/arcus-cli/internal/types"
+	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcus-cli/internal/scram"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
-var roles = map[string]struct{}{
-	"kv":    {},
-	"list":  {},
-	"set":   {},
-	"map":   {},
-	"btree": {},
-	"attr":  {},
-	"scan":  {},
-	"flush": {},
-	"admin": {},
-}
-
 var addCmd = &cobra.Command{
-	Use:   "add <groupName> <userName[:password]:role>",
-	Short: "Add a new user to an ACL group.",
-	Args:  cobra.ExactArgs(2),
+	Use:  "add <group_name> <user_name> <permissions>",
+	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
-		userArgs := args[1:]
-		zkConn := cmd.Context().Value(types.CtxZkConnKey{}).(*zk.Conn)
-		zkAcl := cmd.Context().Value(types.CtxZkAclKey{}).([]zk.ACL)
+		userName := args[1]
+		permissions := args[2]
 
-		var err error
-		for _, arg := range userArgs {
-			err = addUserRequest(zkConn, zkAcl, groupName, arg)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
+		adminName := internal.ReadStdin("admin name", false)
+		adminPassword := internal.ReadStdin("admin password", true)
+		userPassword := internal.ReadStdin("user password", true)
+		if userPassword != internal.ReadStdin("repeat user password", true) {
+			panic("password does not match")
 		}
+
+		secret := scram.GenerateScramSHA256Secret(userPassword, nil, 0)
+
+		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
+		if err != nil {
+			panic(err)
+		}
+		defer conn.Close()
+
+		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
+			panic(err)
+		}
+
+		acls := append(zk.DigestACL(zk.PermAll, adminName, adminPassword),
+			zk.WorldACL(zk.PermRead)...)
+
+		if _, err := conn.Multi(
+			&zk.CreateRequest{
+				Path:  internal.ZPATH_ACL_ROOT + "/" + groupName + "/" + userName,
+				Data:  []byte(permissions),
+				Acl:   acls,
+				Flags: 0,
+			},
+			&zk.CreateRequest{
+				Path:  internal.ZPATH_ACL_ROOT + "/" + groupName + "/" + userName + "/" + propName,
+				Data:  []byte(secret.EncodeToBase64()),
+				Acl:   acls,
+				Flags: 0,
+			},
+		); err != nil {
+			panic(err)
+		}
+
+		fmt.Println("OK")
 	},
 }
 
-func readPassword() string {
-	fmt.Print("Enter Password: ")
-	rawPassword, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println()
+var passwdCmd = &cobra.Command{
+	Use:  "passwd <group_name> <user_name>",
+	Args: cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		groupName := args[0]
+		userName := args[1]
 
-	fmt.Print("Repeat Password: ")
-	repeatPassword, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println()
+		adminName := internal.ReadStdin("admin name", false)
+		adminPassword := internal.ReadStdin("admin password", true)
+		userPassword := internal.ReadStdin("user password", true)
+		if userPassword != internal.ReadStdin("repeat user password", true) {
+			panic("password does not match")
+		}
 
-	if !bytes.Equal(rawPassword, repeatPassword) {
-		panic("passwords do not match")
-	}
-	return string(rawPassword)
+		secret := scram.GenerateScramSHA256Secret(userPassword, nil, 0)
+
+		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
+		if err != nil {
+			panic(err)
+		}
+		defer conn.Close()
+
+		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
+			panic(err)
+		}
+
+		if _, err := conn.Set(internal.ZPATH_ACL_ROOT+"/"+groupName+"/"+userName+"/"+propName,
+			[]byte(secret.EncodeToBase64()), -1); err != nil {
+			panic(err)
+		}
+
+		fmt.Println("OK")
+	},
 }
 
-func validateRoles(role string) error {
-	if role == "" {
-		return fmt.Errorf("role cannot be empty")
-	}
+var permissionsCmd = &cobra.Command{
+	Use:  "permissions <group_name> <user_name> <permissions>",
+	Args: cobra.ExactArgs(3),
+	Run: func(cmd *cobra.Command, args []string) {
+		groupName := args[0]
+		userName := args[1]
+		permissions := args[2]
 
-	seenRoles := make(map[string]struct{})
-	for _, r := range strings.Split(role, ",") {
-		if _, ok := roles[r]; !ok {
-			return fmt.Errorf("invalid role found: %s", r)
+		adminName := internal.ReadStdin("admin name", false)
+		adminPassword := internal.ReadStdin("admin password", true)
+
+		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
+		if err != nil {
+			panic(err)
 		}
-		if _, seen := seenRoles[r]; seen {
-			return fmt.Errorf("duplicate role found: %s", r)
+		defer conn.Close()
+
+		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
+			panic(err)
 		}
-		seenRoles[r] = struct{}{}
-	}
-	return nil
-}
 
-func addUserRequest(zkConn *zk.Conn, zkAcl []zk.ACL, group, arg string) error {
-	tokens := strings.Split(arg, ":")
-	var user, password, role string
-	switch len(tokens) {
-	case 2:
-		user = tokens[0]
-		password = readPassword()
-		role = tokens[1]
-	case 3:
-		user = tokens[0]
-		password = tokens[1]
-		role = tokens[2]
-	default:
-		return fmt.Errorf("invalid argument format: %s", arg)
-	}
+		if _, err := conn.Set(internal.ZPATH_ACL_ROOT+"/"+groupName+"/"+userName+"/"+propName,
+			[]byte(permissions), -1); err != nil {
+			panic(err)
+		}
 
-	if user == "" || password == "" {
-		return fmt.Errorf("user & password cannot be empty: %s", arg)
-	} else if err := validateRoles(role); err != nil {
-		return err
-	}
-
-	return acl.AddUser(zkConn, zkAcl, group, user, password, role)
+		fmt.Println("OK")
+	},
 }
