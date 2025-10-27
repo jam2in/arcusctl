@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/config"
-	"github.com/jam2in/arcus-cli/internal/ssh"
-	"github.com/jam2in/arcus-cli/internal/types"
+	"github.com/jam2in/arcusctl/config"
+	"github.com/jam2in/arcusctl/internal/ssh"
+	"github.com/jam2in/arcusctl/internal/types"
 )
 
 const (

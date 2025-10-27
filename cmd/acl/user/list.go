@@ -3,7 +3,7 @@ package user
 import (
 	"fmt"
 
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcusctl/internal"
 	"github.com/spf13/cobra"
 )
 

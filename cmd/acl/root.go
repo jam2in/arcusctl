@@ -1,8 +1,8 @@
 package acl
 
 import (
-	"github.com/jam2in/arcus-cli/cmd/acl/group"
-	"github.com/jam2in/arcus-cli/cmd/acl/user"
+	"github.com/jam2in/arcusctl/cmd/acl/group"
+	"github.com/jam2in/arcusctl/cmd/acl/user"
 	"github.com/spf13/cobra"
 )
 

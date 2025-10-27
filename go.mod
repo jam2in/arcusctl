@@ -1,4 +1,4 @@
-module github.com/jam2in/arcus-cli
+module github.com/jam2in/arcusctl
 
 go 1.24.6
 

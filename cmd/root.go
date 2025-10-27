@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jam2in/arcus-cli/cmd/acl"
-	"github.com/jam2in/arcus-cli/cmd/memcached"
-	"github.com/jam2in/arcus-cli/cmd/zookeeper"
-	"github.com/jam2in/arcus-cli/internal"
+	"github.com/jam2in/arcusctl/cmd/acl"
+	"github.com/jam2in/arcusctl/cmd/memcached"
+	"github.com/jam2in/arcusctl/cmd/zookeeper"
+	"github.com/jam2in/arcusctl/internal"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "arcus-cli",
+	Use:   "arcusctl",
 	Short: "Arcus CLI",
 	Long:  "Arcus CLI is a command line interface for managing Arcus",
 }

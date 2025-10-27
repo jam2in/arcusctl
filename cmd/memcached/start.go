@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/go-zookeeper/zk"
-	"github.com/jam2in/arcus-cli/internal/memcached"
-	"github.com/jam2in/arcus-cli/internal/types"
+	"github.com/jam2in/arcusctl/internal/memcached"
+	"github.com/jam2in/arcusctl/internal/types"
 	"github.com/spf13/cobra"
 )
 

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/jam2in/arcus-cli/cmd"
+	"github.com/jam2in/arcusctl/cmd"
 )
 
 func main() {
