@@ -1,6 +1,7 @@
 package acl
 
 import (
+	"github.com/jam2in/arcusctl/cmd/acl/admin"
 	"github.com/jam2in/arcusctl/cmd/acl/group"
 	"github.com/jam2in/arcusctl/cmd/acl/user"
 	"github.com/spf13/cobra"
@@ -12,5 +13,6 @@ var RootCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(group.RootCmd)
+	RootCmd.AddCommand(admin.RootCmd)
 	RootCmd.AddCommand(user.RootCmd)
 }
