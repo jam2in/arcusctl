@@ -6,11 +6,17 @@ WORKDIR /usr/src/arcusctl
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
+COPY .git/ .git/
 COPY cmd/ cmd/
 COPY config/ config/
 COPY internal/ internal/
 COPY main.go main.go
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /go/bin/arcusctl
+RUN\
+ CGO_ENABLED=0\
+ GOOS=${TARGETOS} GOARCH=${TARGETARCH}\
+ go build\
+ -ldflags "-X github.com/jam2in/arcusctl/cmd.version=$(git describe)"\
+ -o /go/bin/arcusctl
 
 FROM gcr.io/distroless/static-debian12
 COPY --from=builder /go/bin/arcusctl /
