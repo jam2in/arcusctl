@@ -2,6 +2,7 @@ package user
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jam2in/arcusctl/internal"
 	"github.com/spf13/cobra"
@@ -29,7 +30,14 @@ var listCmd = &cobra.Command{
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("  * %s (%s)\n", u, perm)
+
+			// It's pretty stupid
+			permList := strings.Split(string(perm), ",")
+			if permList[len(permList)-1] == "logall" {
+				fmt.Printf("  * %s %+v logAll\n", u, permList[:len(permList)-1])
+			} else {
+				fmt.Printf("  * %s %+v\n", u, permList)
+			}
 		}
 		fmt.Printf("Total: %d\n", len(users))
 	},

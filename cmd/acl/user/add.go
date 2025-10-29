@@ -2,6 +2,7 @@ package user
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-zookeeper/zk"
 	"github.com/jam2in/arcusctl/internal"
@@ -10,12 +11,19 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:  "add <group_name> <user_name> <permissions>",
-	Args: cobra.ExactArgs(3),
+	Use:  "add <group_name> <user_name> <permissions> [logAll]",
+	Args: cobra.RangeArgs(3, 4),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
 		userName := args[1]
 		permissions := args[2]
+		if len(args) == 4 {
+			if args[3] == "logAll" {
+				permissions += ",logall"
+			} else {
+				panic("invalid arguments")
+			}
+		}
 
 		adminName := internal.ReadStdin("admin name", false)
 		adminPassword := internal.ReadStdin("admin password", true)
@@ -116,7 +124,17 @@ var permissionsCmd = &cobra.Command{
 			panic(err)
 		}
 
-		if _, err := conn.Set(internal.ZPATH_ACL_ROOT+"/"+groupName+"/"+userName+"/"+propName,
+		// It's pretty stupid
+		beforePerm, _, err := conn.Get(internal.ZPATH_ACL_ROOT + "/" + groupName + "/" + userName)
+		if err != nil {
+			panic(err)
+		}
+		beforePermList := strings.Split(string(beforePerm), ",")
+		if beforePermList[len(beforePermList)-1] == "logall" {
+			permissions += ",logall"
+		}
+
+		if _, err := conn.Set(internal.ZPATH_ACL_ROOT+"/"+groupName+"/"+userName,
 			[]byte(permissions), -1); err != nil {
 			panic(err)
 		}
