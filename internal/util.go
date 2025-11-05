@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/go-zookeeper/zk"
 	"golang.org/x/term"
@@ -47,6 +48,27 @@ func EnsureZPath(conn *zk.Conn, zpath string) {
 	}
 }
 
+func isValidPassword(p string) bool {
+	if len(p) < 12 {
+		return false
+	}
+
+	var hasUpper, hasLower, hasDigit, hasSpecial int
+	for _, c := range p {
+		if unicode.IsUpper(c) {
+			hasUpper = 1
+		} else if unicode.IsLower(c) {
+			hasLower = 1
+		} else if unicode.IsDigit(c) {
+			hasDigit = 1
+		} else if unicode.IsPunct(c) || unicode.IsSymbol(c) {
+			hasSpecial = 1
+		}
+	}
+
+	return hasUpper+hasLower+hasDigit+hasSpecial >= 3
+}
+
 func ReadStdin(msg string, isPassword bool) string {
 	fmt.Print(msg + ": ")
 	if isPassword {
@@ -54,8 +76,12 @@ func ReadStdin(msg string, isPassword bool) string {
 		if err != nil {
 			panic(err)
 		}
+		pw := string(raw)
+		if !isValidPassword(pw) {
+			panic("Password must be 12+ characters and include 3+ of: uppercase, lowercase, digits, symbols")
+		}
 		fmt.Println()
-		return string(raw)
+		return pw
 	} else {
 		var input string
 		if _, err := fmt.Scanln(&input); err != nil {
