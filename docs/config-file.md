@@ -2,7 +2,8 @@
 
 ## 설정 파일
 
-`arcusctl`은 아래와 같은 설정 파일을 사용합니다.
+`arcusctl` 도구는 아래 내용의 `config.yaml` 설정 파일을 사용합니다.
+
 ```yaml
 zookeeper: "10.0.0.1:2181,10.0.0.2:2181,10.0.0.3:2181"
 # Alternatively, you can use a domain address.
@@ -11,7 +12,7 @@ zookeeper: "10.0.0.1:2181,10.0.0.2:2181,10.0.0.3:2181"
 
 ## 설정 파일 위치
 
-`arcusctl`은 다음 순서대로 설정 파일을 찾습니다:
+`arcusctl` 도구는 다음 순서대로 설정 파일을 찾습니다:
 
 1. 사용자 지정 경로 (`--config-file` 옵션)
    ```sh
