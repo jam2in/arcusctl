@@ -6,12 +6,7 @@ WORKDIR /usr/src/arcusctl
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
-# Copy .git directory for debug.ReadBuildInfo() to retrieve version information
-COPY .git/ .git/
-COPY cmd/ cmd/
-COPY config/ config/
-COPY internal/ internal/
-COPY main.go main.go
+COPY . .
 RUN\
  CGO_ENABLED=0\
  GOOS=${TARGETOS} GOARCH=${TARGETARCH}\
