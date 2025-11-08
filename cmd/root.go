@@ -3,19 +3,22 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/jam2in/arcusctl/cmd/acl"
 	"github.com/jam2in/arcusctl/internal"
 	"github.com/spf13/cobra"
 )
 
-var version = "develop"
-
 var versionCmd = &cobra.Command{
 	Use:  "version",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(version)
+		if info, ok := debug.ReadBuildInfo(); ok {
+			fmt.Println(info.Main.Version)
+		} else {
+			panic("failed to debug.ReadBuildInfo()")
+		}
 	},
 }
 

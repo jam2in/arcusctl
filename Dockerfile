@@ -6,6 +6,7 @@ WORKDIR /usr/src/arcusctl
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
+# Copy .git directory for debug.ReadBuildInfo() to retrieve version information
 COPY .git/ .git/
 COPY cmd/ cmd/
 COPY config/ config/
@@ -15,7 +16,6 @@ RUN\
  CGO_ENABLED=0\
  GOOS=${TARGETOS} GOARCH=${TARGETARCH}\
  go build\
- -ldflags "-X github.com/jam2in/arcusctl/cmd.version=$(git describe)"\
  -o /go/bin/arcusctl
 
 FROM gcr.io/distroless/static-debian12
