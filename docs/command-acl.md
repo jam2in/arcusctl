@@ -98,6 +98,11 @@ Arcus ACL 정보를 저장, 관리하는 ZooKeeper에 연결하기 위하여, [�
 # OK
 ```
 - 기존 사용자의 비밀번호를 변경합니다.
+- 캐시 서버에 해당 사용자의 연결이 남아 있으면, 변경에 실패합니다.
+
+```
+panic: found namsic in /arcus/client_list/test/devbox_10.178.0.39_9_c_1.15.0-11_20251119064221_1000f221c46000e_sasluser=namsic
+```
 
 ### 2-4) 사용자 권한 변경 - `acl user permissions`
 
@@ -109,6 +114,11 @@ Arcus ACL 정보를 저장, 관리하는 ZooKeeper에 연결하기 위하여, [�
 ```
 - 기존 사용자의 권한을 변경합니다.
 - `logAll` 설정은 변경할 수 없으며, 사용자 생성 시에만 설정할 수 있다.
+- 캐시 서버에 해당 사용자의 연결이 남아 있으면, 변경에 실패합니다.
+
+```
+panic: found namsic in /arcus/client_list/test/devbox_10.178.0.39_9_c_1.15.0-11_20251119064221_1000f221c46000e_sasluser=namsic
+```
 
 ### 2-5) 사용자 제거 - `acl user remove`
 
@@ -119,6 +129,11 @@ Arcus ACL 정보를 저장, 관리하는 ZooKeeper에 연결하기 위하여, [�
 # OK
 ```
 - 사용자를 그룹에서 제거합니다.
+- 캐시 서버에 해당 사용자의 연결이 남아 있으면, 제거에 실패합니다.
+
+```
+panic: found namsic in /arcus/client_list/test/devbox_10.178.0.39_9_c_1.15.0-11_20251119064221_1000f221c46000e_sasluser=namsic
+```
 
 ## 3) 기타
 
