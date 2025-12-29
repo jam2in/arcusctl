@@ -1,0 +1,4 @@
+# 2025-12-29 [version v0.1.0]
+## 🐣 New Features
+  - Add `acl` command.
+  - Add `connect` command.
