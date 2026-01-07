@@ -8,7 +8,14 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:  "remove <group_name>",
+	Use:   "remove <group_name>",
+	Short: "Remove an ACL group",
+	Long: `Remove the specified ACL group from ZooKeeper.
+
+Warning: This operation will fail if the group still contains users.
+Remove all users from the group before deleting it.`,
+	Example: `  # Remove the 'cache01' group
+  arcusctl acl group remove cache01`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]

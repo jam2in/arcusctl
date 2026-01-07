@@ -11,7 +11,16 @@ import (
 )
 
 var passwdCmd = &cobra.Command{
-	Use:  "passwd <group_name>",
+	Use:   "passwd <group_name>",
+	Short: "Change the admin password for a group",
+	Long: `Change the administrator password for the specified ACL group.
+
+This command updates the admin password and recursively updates all
+ACLs for the group and its users in ZooKeeper.
+
+For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/docs/command-acl.md`,
+	Example: `  # Change admin password for group 'cache01'
+  arcusctl acl admin passwd cache01`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]

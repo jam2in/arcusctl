@@ -9,7 +9,11 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:  "list <group_name>",
+	Use:   "list <group_name>",
+	Short: "List all users in a group",
+	Long:  `List all users in the specified ACL group with their permissions.`,
+	Example: `  # List all users in the 'cache01' group
+  arcusctl acl user list cache01`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]

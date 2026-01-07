@@ -11,7 +11,14 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:  "remove <group_name> <user_name>",
+	Use:   "remove <group_name> <user_name>",
+	Short: "Remove a user from a group",
+	Long: `Remove the specified user from the given ACL group.
+
+This command will check if the user is currently connected to any cache servers
+and will fail if active connections are found.`,
+	Example: `  # Remove user 'john' from group 'cache01'
+  arcusctl acl user remove cache01 john`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
