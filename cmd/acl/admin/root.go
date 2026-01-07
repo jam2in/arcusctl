@@ -5,7 +5,9 @@ import (
 )
 
 var RootCmd = &cobra.Command{
-	Use: "admin",
+	Use:   "admin",
+	Short: "Manage ARCUS ACL group administrators",
+	Long:  `Manage administrative credentials for ARCUS ACL groups.`,
 }
 
 func init() {

@@ -15,7 +15,23 @@ import (
 )
 
 var connectCmd = &cobra.Command{
-	Use:  "connect <addr> [username:password]",
+	Use:   "connect <addr> [username:password]",
+	Short: "Connect to an ARCUS cache server interactively",
+	Long: `Connect to an ARCUS cache server and execute commands interactively.
+
+This command establishes a TCP connection to the specified server address
+and allows you to send memcached protocol commands directly. If authentication
+credentials are provided, SASL SCRAM-SHA-256 authentication will be performed.`,
+	Example: `  # Connect without authentication
+  arcusctl connect localhost:11211
+
+  # Connect with SASL authentication
+  arcusctl connect localhost:11211 myuser:mypassword
+
+  # After connection, you can execute memcached commands:
+  get mykey
+  set mykey 0 0 5
+  hello`,
 	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		conn, err := net.Dial("tcp", args[0])

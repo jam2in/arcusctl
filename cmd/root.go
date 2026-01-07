@@ -11,8 +11,9 @@ import (
 )
 
 var versionCmd = &cobra.Command{
-	Use:  "version",
-	Args: cobra.NoArgs,
+	Use:   "version",
+	Short: "Print the version number of arcusctl",
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		if info, ok := debug.ReadBuildInfo(); ok {
 			fmt.Println(info.Main.Version)
@@ -23,7 +24,8 @@ var versionCmd = &cobra.Command{
 }
 
 var rootCmd = &cobra.Command{
-	Use: "arcusctl",
+	Use:  "arcusctl",
+	Long: `arcusctl is a CLI tool for managing and operating ARCUS cache clusters.`,
 }
 
 func init() {

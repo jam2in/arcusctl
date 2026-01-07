@@ -8,7 +8,11 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:  "list",
+	Use:   "list",
+	Short: "List all ACL groups",
+	Long:  `List all ACL groups configured in ZooKeeper.`,
+	Example: `  # List all ACL groups
+  arcusctl acl group list`,
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)

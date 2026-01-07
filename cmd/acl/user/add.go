@@ -11,7 +11,19 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:  "add <group_name> <user_name> <permissions> [logAll]",
+	Use:   "add <group_name> <user_name> <permissions> [logAll]",
+	Short: "Add a new user to a group",
+	Long: `Add a new user to the specified ACL group with the given permissions.
+
+Permissions should be specified as a comma-separated list.
+Optionally, you can enable full logging by adding 'logAll' as the fourth argument.
+
+For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/docs/command-acl.md`,
+	Example: `  # Add a user 'myapp' for application
+  arcusctl acl user add cache01 myapp kv,list,set,map,btree,attr,scan,flush
+
+  # Add a user 'john' for operator with logging enabled
+  arcusctl acl user add cache01 john attr,scan,flush,admin logAll`,
 	Args: cobra.RangeArgs(3, 4),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
@@ -69,7 +81,13 @@ var addCmd = &cobra.Command{
 }
 
 var passwdCmd = &cobra.Command{
-	Use:  "passwd <group_name> <user_name>",
+	Use:   "passwd <group_name> <user_name>",
+	Short: "Change a user's password",
+	Long: `Change the password for the specified user in the given group.
+
+For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/docs/command-acl.md`,
+	Example: `  # Change password for user 'john' in group 'cache01'
+  arcusctl acl user passwd cache01 john`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
@@ -104,7 +122,14 @@ var passwdCmd = &cobra.Command{
 }
 
 var permissionsCmd = &cobra.Command{
-	Use:  "permissions <group_name> <user_name> <permissions>",
+	Use:   "permissions <group_name> <user_name> <permissions>",
+	Short: "Update a user's permissions",
+	Long: `Update the permissions for the specified user in the given group.
+
+Permissions should be specified as a comma-separated list.
+The logAll flag will be preserved from the user's existing configuration.`,
+	Example: `  # Update user permissions to key-value only
+  arcusctl acl user permissions cache01 john kv`,
 	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		groupName := args[0]
