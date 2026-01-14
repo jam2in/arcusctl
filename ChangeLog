@@ -1,3 +1,7 @@
+# 2026-01-14 [version v0.1.1]
+## 📝 Documentation
+  - Add help string(`-h`) to each command.
+
 # 2025-12-29 [version v0.1.0]
 ## 🐣 New Features
   - Add `acl` command.
