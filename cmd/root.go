@@ -36,9 +36,6 @@ func init() {
 	rootCmd.AddCommand(acl.RootCmd)
 	rootCmd.AddCommand(connectCmd)
 
-	// rootCmd.AddCommand(zookeeper.ZookeeperCmd)
-	// rootCmd.AddCommand(memcached.MemcachedCmd)
-
 	cobra.OnInitialize(internal.InitConfig)
 }
 

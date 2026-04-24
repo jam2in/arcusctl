@@ -7,7 +7,6 @@ require (
 	github.com/go-zookeeper/zk v1.0.4
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.21.0
-	golang.org/x/crypto v0.42.0
 	golang.org/x/term v0.35.0
 )
 
