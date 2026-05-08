@@ -16,6 +16,7 @@ var (
 
 	Config = struct {
 		ZooKeeper string
+		Home      string
 	}{}
 )
 
@@ -33,6 +34,12 @@ func InitConfig() {
 		v.AddConfigPath(".")
 		v.SetConfigName("config")
 	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	v.SetDefault("home", filepath.Join(homeDir, ".arcusctl"))
 
 	v.SetEnvPrefix("ARCUSCTL")
 	v.AutomaticEnv()
