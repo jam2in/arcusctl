@@ -6,6 +6,8 @@ import (
 	"runtime/debug"
 
 	"github.com/jam2in/arcusctl/cmd/acl"
+	"github.com/jam2in/arcusctl/cmd/cluster"
+	"github.com/jam2in/arcusctl/cmd/zk"
 	"github.com/jam2in/arcusctl/internal"
 	"github.com/spf13/cobra"
 )
@@ -35,6 +37,8 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(acl.RootCmd)
 	rootCmd.AddCommand(connectCmd)
+	rootCmd.AddCommand(zk.ZKCmd)
+	rootCmd.AddCommand(cluster.ClusterCmd)
 
 	cobra.OnInitialize(internal.InitConfig)
 }
