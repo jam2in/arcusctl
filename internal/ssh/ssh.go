@@ -57,13 +57,13 @@ func Run(host string, command string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = client.Close() }()
+	defer client.Close()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return err
 	}
-	defer func() { _ = session.Close() }()
+	defer session.Close()
 
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
