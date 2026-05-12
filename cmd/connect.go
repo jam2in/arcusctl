@@ -38,7 +38,7 @@ credentials are provided, SASL SCRAM-SHA-256 authentication will be performed.`,
 		if err != nil {
 			panic(err)
 		}
-		defer func() { _ = conn.Close() }()
+		defer conn.Close()
 
 		if len(args) == 2 {
 			username, password, _ := strings.Cut(args[1], ":")
