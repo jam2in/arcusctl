@@ -1,6 +1,9 @@
 package topology
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type ZKTopology struct {
 	Name         string     `yaml:"name"`
@@ -32,4 +35,39 @@ func (s *ZKServer) ParseAddress() (host, clientPort, quorumPort, electionPort st
 func (s *ZKServer) Host() string {
 	host, _, _, _ := s.ParseAddress()
 	return host
+}
+
+func (topo *ZKTopology) Validate() error {
+	if strings.TrimSpace(topo.Name) == "" {
+		return fmt.Errorf("ZooKeeper ensemble name is required")
+	}
+
+	if strings.TrimSpace(topo.Path) == "" {
+		return fmt.Errorf("ZooKeeper installation path is required")
+	}
+
+	if len(topo.Servers) == 0 {
+		return fmt.Errorf("no servers defined in topology")
+	}
+
+	seenMyID := map[int]bool{}
+	seenAddress := map[string]bool{}
+
+	for _, s := range topo.Servers {
+		if seenMyID[s.MyID] {
+			return fmt.Errorf("duplicate myid: %d", s.MyID)
+		}
+		seenMyID[s.MyID] = true
+
+		if seenAddress[s.Address] {
+			return fmt.Errorf("duplicate address: %s", s.Address)
+		}
+		seenAddress[s.Address] = true
+
+		if s.Config.DataDir == "" {
+			return fmt.Errorf("server myid=%d: data_dir is required", s.MyID)
+		}
+	}
+
+	return nil
 }
