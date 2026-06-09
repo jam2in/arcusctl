@@ -1,0 +1,39 @@
+# For more configuration options, see:
+# https://zookeeper.apache.org/doc/r3.5.9/zookeeperAdmin.html#sc_configuration
+
+name: my-ensemble                                # required
+path: /home/arcus/zookeeper                      # required
+
+servers:
+  - myid: 1                                      # required
+    address: zk1:2181:2888:3888                  # required (host:clientPort:quorumPort:electionPort)
+    config:                                      # optional - per-node override
+      data_log_dir: /data/zk1-txlog
+
+  - myid: 2
+    address: zk2:2181:2888:3888
+
+  - myid: 3
+    address: zk3:2181:2888:3888
+
+global_config:
+  # optional (default: 2000)
+  tick_time: 2000
+
+  # optional (default: 10) - ticks for follower to sync to leader
+  init_limit: 10
+
+  # optional (default: 5) - ticks between request and ack
+  sync_limit: 5
+
+  # required
+  data_dir: /var/lib/zk/data
+
+  # optional (default: data_dir) - dedicated disk recommended
+  data_log_dir: /var/lib/zk/datalog
+
+  # optional - other ZK options (string values only)
+  properties:
+    maxClientCnxns: "60"
+    autopurge.snapRetainCount: "10"
+    autopurge.purgeInterval: "24"
