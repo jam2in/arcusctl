@@ -1,13 +1,21 @@
 package zk
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/jam2in/arcusctl/internal/zk"
+	"github.com/spf13/cobra"
+)
 
 var startCmd = &cobra.Command{
 	Use:   "start <ensemble-name> [--node <myid>]",
 	Short: "Start a ZooKeeper ensemble",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: start 구현
+		ensembleName := args[0]
+		myID, _ := cmd.Flags().GetInt("node")
+
+		if err := zk.Start(ensembleName, myID); err != nil {
+			panic(err)
+		}
 	},
 }
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jam2in/arcusctl/internal"
+	"github.com/jam2in/arcusctl/internal/topology"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -63,9 +64,27 @@ func LoadZKMeta(ensembleName string) (*ZKMeta, error) {
 	return &meta, nil
 }
 
+func LoadZKTopology(ensembleName string) (*topology.ZKTopology, error) {
+	data, err := os.ReadFile(filepath.Join(zkDir(ensembleName), topologyYML))
+	if err != nil {
+		return nil, err
+	}
+
+	var topo topology.ZKTopology
+	if err := yaml.Unmarshal(data, &topo); err != nil {
+		return nil, err
+	}
+
+	return &topo, nil
+}
+
 func ZKExists(ensembleName string) bool {
 	_, err := os.Stat(filepath.Join(zkDir(ensembleName), metaYML))
 	return err == nil
+}
+
+func DeleteZK(ensembleName string) error {
+	return os.RemoveAll(zkDir(ensembleName))
 }
 
 func ListZK() ([]string, error) {

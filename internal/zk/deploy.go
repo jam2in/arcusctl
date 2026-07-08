@@ -1,24 +1,23 @@
 package zk
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
 
+	"github.com/jam2in/arcusctl/internal"
 	"github.com/jam2in/arcusctl/internal/store"
 	"github.com/jam2in/arcusctl/internal/topology"
 )
 
-func Deploy(version string, topologyPath string) error {
-	topo, topologyBytes, err := prepareTopology(topologyPath)
+func Deploy(version string, topoPath string) error {
+	topo, topologyBytes, err := prepareTopology(topoPath)
 	if err != nil {
 		return err
 	}
 
 	printPlan(topo, version)
-	if !confirm() {
+	if !internal.Confirm("Proceed with deployment? (y/N): ") {
 		fmt.Println("Aborted.")
 		return nil
 	}
@@ -43,16 +42,13 @@ func Deploy(version string, topologyPath string) error {
 	return nil
 }
 
-func prepareTopology(topologyPath string) (*topology.ZKTopology, []byte, error) {
-	topo, rawData, err := topology.LoadZK(topologyPath)
+func prepareTopology(topoPath string) (*topology.ZKTopology, []byte, error) {
+	topo, rawData, err := topology.LoadZK(topoPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	for i := range topo.Servers {
-		merged := mergeConfig(topo.GlobalConfig, topo.Servers[i].Config)
-		topo.Servers[i].Config = &merged
-	}
+	mergeServerConfigs(topo)
 
 	if err := topo.Validate(); err != nil {
 		return nil, nil, err
@@ -96,17 +92,4 @@ func printRecoveryGuide(deployed []topology.ZKServer, topo *topology.ZKTopology)
 	}
 	fmt.Println("\nTo clean up, manually run on each server:")
 	fmt.Printf("  rm -rf %s/conf_myid_<myid>\n", topo.Path)
-}
-
-func confirm() bool {
-	// FIXME: internal.ReadStdin()으로 변경 필요
-	fmt.Print("\nProceed? [y/N]: ")
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return false
-	}
-
-	input = strings.TrimSpace(strings.ToLower(input))
-	return input == "y" || input == "yes"
 }
