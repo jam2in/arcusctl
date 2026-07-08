@@ -1,8 +1,10 @@
 package internal
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -89,4 +91,17 @@ func ReadStdin(msg string, isPassword bool) string {
 		}
 		return input
 	}
+}
+
+// FIXME: ReadStdin와 통합 가능 여부 검토 필요
+func Confirm(prompt string) bool {
+	fmt.Print(prompt)
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+	return input == "y" || input == "yes"
 }
