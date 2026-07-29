@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -90,4 +91,30 @@ func Copy(localPath string, host string, remotePath string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func FileExists(host string, remotePath string) (bool, error) {
+	client, err := newClient(host)
+	if err != nil {
+		return false, err
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return false, err
+	}
+	defer session.Close()
+
+	err = session.Run(fmt.Sprintf("test -f %s", remotePath))
+	if err == nil {
+		return true, nil
+	}
+
+	var exitErr *gossh.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitStatus() == 1 {
+		return false, nil
+	}
+
+	return false, err
 }
