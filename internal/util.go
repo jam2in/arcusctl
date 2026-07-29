@@ -20,6 +20,34 @@ func ConnectZooKeeper(addr string) (*zk.Conn, error) {
 	return conn, err
 }
 
+// FXIME: EnsureZPath와 통합 가능 여부 검토 필요
+func EnsureZNode(conn *zk.Conn, zpath string) error {
+	if zpath == "" || zpath == "/" {
+		return nil
+	}
+
+	exists, _, err := conn.Exists(zpath)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	parent := zpath[:strings.LastIndex(zpath, "/")]
+	if parent != "" {
+		if err := EnsureZNode(conn, parent); err != nil {
+			return err
+		}
+	}
+
+	_, err = conn.Create(zpath, []byte{}, 0, zk.WorldACL(zk.PermAll))
+	if err == zk.ErrNodeExists {
+		return nil
+	}
+	return err
+}
+
 func EnsureZPath(conn *zk.Conn, zpath string) {
 	if zpath == "" || zpath == "/" {
 		return
