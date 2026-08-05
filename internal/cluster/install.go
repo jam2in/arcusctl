@@ -138,7 +138,3 @@ func buildCommand(
 		strings.Join(options, " "),
 	)
 }
-
-func memcachedInstallPath(basePath string, version string) string {
-	return path.Join(basePath, version)
-}

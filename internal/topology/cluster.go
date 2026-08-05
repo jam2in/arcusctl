@@ -63,10 +63,6 @@ func (topo *ClusterTopology) Edition() (ClusterEdition, error) {
 	}
 }
 
-func (s *CacheServer) Host() string {
-	return strings.SplitN(s.Address, ":", 2)[0]
-}
-
 func (topo *ClusterTopology) Validate() error {
 	if strings.TrimSpace(topo.ServiceCode) == "" {
 		return fmt.Errorf("cluster servicecode is required")
@@ -147,4 +143,12 @@ func (topo *ClusterTopology) validateGroups() error {
 	}
 
 	return nil
+}
+
+func (s *CacheServer) IsMaster() bool {
+	return s.Group != nil && s.Group.Role == "master"
+}
+
+func (s *CacheServer) Host() string {
+	return strings.SplitN(s.Address, ":", 2)[0]
 }

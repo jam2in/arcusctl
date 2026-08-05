@@ -10,7 +10,7 @@ servers:
   - address: cache2:11211
   - address: cache3:11211
     config:                                      # optional - per-node override
-      options: "-l 192.168.1.3"                  # optional - override global options
+      options: "-l 192.168.1.3"                  # optional - override global options (-p, -P, -z, -d are not allowed)
 
 global_config:
   options: "-t 4 -c 1024 -b 1024 -B auto -m 64"  # memcached command-line arguments

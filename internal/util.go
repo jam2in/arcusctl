@@ -133,3 +133,25 @@ func Confirm(prompt string) bool {
 	input = strings.TrimSpace(strings.ToLower(input))
 	return input == "y" || input == "yes"
 }
+
+func DeleteZNode(conn *zk.Conn, zpath string) error {
+	children, _, err := conn.Children(zpath)
+	if err == zk.ErrNoNode {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	for _, child := range children {
+		if err := DeleteZNode(conn, zpath+"/"+child); err != nil {
+			return err
+		}
+	}
+
+	err = conn.Delete(zpath, -1)
+	if err == zk.ErrNoNode {
+		return nil
+	}
+	return err
+}
