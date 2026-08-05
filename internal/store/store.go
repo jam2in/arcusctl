@@ -131,6 +131,10 @@ func SaveCluster(serviceCode string, version string, topologyData []byte) error 
 	return os.WriteFile(filepath.Join(dir, topologyYML), topologyData, 0644)
 }
 
+func DeleteCluster(serviceCode string) error {
+	return os.RemoveAll(clusterDir(serviceCode))
+}
+
 func LoadClusterMeta(serviceCode string) (*ClusterMeta, error) {
 	data, err := os.ReadFile(filepath.Join(clusterDir(serviceCode), metaYML))
 	if err != nil {
@@ -143,6 +147,20 @@ func LoadClusterMeta(serviceCode string) (*ClusterMeta, error) {
 	}
 
 	return &meta, nil
+}
+
+func LoadClusterTopology(serviceCode string) (*topology.ClusterTopology, error) {
+	data, err := os.ReadFile(filepath.Join(clusterDir(serviceCode), topologyYML))
+	if err != nil {
+		return nil, err
+	}
+
+	var topo topology.ClusterTopology
+	if err := yaml.Unmarshal(data, &topo); err != nil {
+		return nil, err
+	}
+
+	return &topo, nil
 }
 
 func ClusterExists(serviceCode string) bool {
