@@ -5,114 +5,39 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
-	"path/filepath"
-
-	gossh "golang.org/x/crypto/ssh"
 )
 
-func currentUser() (string, error) {
-	u, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-
-	return u.Username, nil
-}
-
-func newClient(host string) (*gossh.Client, error) {
-	username, err := currentUser()
-	if err != nil {
-		return nil, err
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	keyPath := filepath.Join(homeDir, ".ssh", "id_rsa")
-	key, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	signer, err := gossh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, err
-	}
-
-	config := &gossh.ClientConfig{
-		User: username,
-		Auth: []gossh.AuthMethod{
-			gossh.PublicKeys(signer),
-		},
-		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
-	}
-
-	return gossh.Dial("tcp", host+":22", config)
+func withOptions(args ...string) []string {
+	return append([]string{
+		"-o", "BatchMode=yes",
+		"-o", "ConnectTimeout=10",
+	}, args...)
 }
 
 func Run(host string, command string) error {
-	client, err := newClient(host)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	session, err := client.NewSession()
-	if err != nil {
-		return err
-	}
-	defer session.Close()
-
-	session.Stdout = os.Stdout
-	session.Stderr = os.Stderr
-	return session.Run(command)
+	cmd := exec.Command("ssh", withOptions(host, command)...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func Copy(localPath string, host string, remotePath string) error {
-	username, err := currentUser()
-	if err != nil {
-		return err
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	dest := fmt.Sprintf("%s@%s:%s", username, host, remotePath)
-	cmd := exec.Command("scp",
-		"-i", filepath.Join(homeDir, ".ssh", "id_rsa"),
-		"-o", "StrictHostKeyChecking=no",
-		localPath,
-		dest)
+	dest := fmt.Sprintf("%s:%s", host, remotePath)
+	cmd := exec.Command("scp", withOptions(localPath, dest)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
 func FileExists(host string, remotePath string) (bool, error) {
-	client, err := newClient(host)
-	if err != nil {
-		return false, err
-	}
-	defer client.Close()
-
-	session, err := client.NewSession()
-	if err != nil {
-		return false, err
-	}
-	defer session.Close()
-
-	err = session.Run(fmt.Sprintf("test -f %s", remotePath))
+	cmd := exec.Command("ssh", withOptions(host, fmt.Sprintf("test -f %s", remotePath))...)
+	err := cmd.Run()
 	if err == nil {
 		return true, nil
 	}
 
-	var exitErr *gossh.ExitError
-	if errors.As(err, &exitErr) && exitErr.ExitStatus() == 1 {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 		return false, nil
 	}
 
