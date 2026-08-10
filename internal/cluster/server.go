@@ -3,6 +3,7 @@ package cluster
 import (
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/jam2in/arcusctl/internal/topology"
@@ -19,6 +20,11 @@ func pidFilePath(
 ) string {
 	installPath := memcachedInstallPath(topoPath, version)
 	return path.Join(installPath, fmt.Sprintf("memcached-%s.pid", listenPort(serverAddress)))
+}
+
+func processRunningCommand(pidFile string) string {
+	pattern := fmt.Sprintf("[m]emcached.*-P %s", regexp.QuoteMeta(pidFile))
+	return fmt.Sprintf("pgrep -f %q > /dev/null 2>&1", pattern)
 }
 
 func listenPort(address string) string {

@@ -83,7 +83,7 @@ func verifyAllStopped(
 ) error {
 	for _, server := range topo.Servers {
 		pidFile := pidFilePath(server.Address, topo.Path, version)
-		cmd := fmt.Sprintf("pgrep -f %q > /dev/null 2>&1", pidFile)
+		cmd := processRunningCommand(pidFile)
 		if err := ssh.Run(server.Host(), cmd); err == nil {
 			return fmt.Errorf(
 				"cache server %q is still running; stop the cluster before delete",

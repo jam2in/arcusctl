@@ -59,7 +59,7 @@ func verifyTopology(servers []topology.ZKServer, topoPath string) error {
 func verifyAllStopped(servers []topology.ZKServer, topoPath string) error {
 	for _, server := range servers {
 		confPath := zkConfigPath(topoPath, server.MyID)
-		cmd := fmt.Sprintf("pgrep -f 'QuorumPeerMain.*%s' > /dev/null 2>&1", confPath)
+		cmd := fmt.Sprintf("pgrep -f '[Q]uorumPeerMain.*%s' > /dev/null 2>&1", confPath)
 		if err := ssh.Run(server.Host(), cmd); err == nil {
 			return fmt.Errorf("server %s (myid=%d) is still running. stop the ensemble before delete",
 				server.Host(), server.MyID)

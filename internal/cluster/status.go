@@ -57,7 +57,7 @@ func processStatus(
 	version string,
 ) string {
 	pidFile := pidFilePath(server.Address, topoPath, version)
-	cmd := fmt.Sprintf("pgrep -f %q > /dev/null 2>&1", pidFile)
+	cmd := processRunningCommand(pidFile)
 	if err := ssh.Run(server.Host(), cmd); err == nil {
 		return "running"
 	}
