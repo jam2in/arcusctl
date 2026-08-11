@@ -54,10 +54,15 @@ func installArchive(host string, installPath string, version string, localTarPat
 func configureServer(server topology.ZKServer, topo *topology.ZKTopology) error {
 	host := server.Host()
 	confDir := fmt.Sprintf("%s/conf_myid_%d", topo.Path, server.MyID)
-	dataDir := server.Config.DataDir
-	dataDirPath := fmt.Sprintf("%s/zk%d", dataDir, server.MyID)
+	dataDirPath := fmt.Sprintf("%s/zk%d", server.Config.DataDir, server.MyID)
+	dataLogDirPath := fmt.Sprintf("%s/zk%d", server.Config.DataLogDir, server.MyID)
+	mkdirCmd := fmt.Sprintf(
+		"mkdir -p %s %s %s",
+		confDir,
+		dataDirPath,
+		dataLogDirPath,
+	)
 
-	mkdirCmd := fmt.Sprintf("mkdir -p %s %s", confDir, dataDirPath)
 	if err := ssh.Run(host, mkdirCmd); err != nil {
 		return fmt.Errorf("mkdir on %s: %w", host, err)
 	}
