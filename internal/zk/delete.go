@@ -2,6 +2,7 @@ package zk
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/jam2in/arcusctl/internal"
@@ -77,11 +78,19 @@ func groupServersByHost(servers []topology.ZKServer) map[string][]topology.ZKSer
 }
 
 func removeHostFiles(host string, servers []topology.ZKServer, topoPath string) error {
-	paths := []string{topoPath}
+	removePaths := []string{topoPath}
 	for _, server := range servers {
-		paths = append(paths, fmt.Sprintf("%s/zk%d", server.Config.DataDir, server.MyID))
+		removePaths = append(removePaths, nodeDataPaths(server)...)
 	}
 
-	cmd := "rm -rf " + strings.Join(paths, " ")
-	return ssh.Run(host, cmd)
+	return ssh.Run(host, "rm -rf "+strings.Join(removePaths, " "))
+}
+
+func nodeDataPaths(server topology.ZKServer) []string {
+	nodeDirName := fmt.Sprintf("zk%d", server.MyID)
+
+	return []string{
+		path.Join(server.Config.DataDir, nodeDirName),
+		path.Join(server.Config.DataLogDir, nodeDirName),
+	}
 }
