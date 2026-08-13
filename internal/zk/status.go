@@ -17,7 +17,7 @@ func Status(ensembleName string) error {
 
 	for _, server := range topo.Servers {
 		fmt.Printf("=== %s (myid=%d) ===\n", server.Host(), server.MyID)
-		if err := statusServer(server, topo.Path); err != nil {
+		if err := statusServer(server, topo.Path, topo.Name, meta.Version); err != nil {
 			fmt.Printf(" error: %v\n", err)
 		}
 		fmt.Println()
@@ -26,7 +26,14 @@ func Status(ensembleName string) error {
 	return nil
 }
 
-func statusServer(server topology.ZKServer, topoPath string) error {
-	cmd := fmt.Sprintf("%s status %s", zkServerScript(topoPath), zkConfigPath(topoPath, server.MyID))
+func statusServer(
+	server topology.ZKServer,
+	topoPath string,
+	ensembleName string,
+	version string,
+) error {
+	scriptPath := zkServerScript(topoPath, version)
+	configPath := zkConfigPath(topoPath, ensembleName, server.MyID)
+	cmd := fmt.Sprintf("%s status %s", scriptPath, configPath)
 	return ssh.Run(server.Host(), cmd)
 }

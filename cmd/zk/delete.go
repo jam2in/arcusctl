@@ -10,8 +10,13 @@ var deleteCmd = &cobra.Command{
 	Short: "Delete a ZooKeeper ensemble",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := zk.Delete(args[0]); err != nil {
+		purge, _ := cmd.Flags().GetBool("purge")
+		if err := zk.Delete(args[0], purge); err != nil {
 			panic(err)
 		}
 	},
+}
+
+func init() {
+	deleteCmd.Flags().Bool("purge", false, "also remove the installation directory on each server")
 }

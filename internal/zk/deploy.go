@@ -63,14 +63,15 @@ func prepareTopology(topoPath string) (*topology.ZKTopology, []byte, error) {
 
 func printPlan(topo *topology.ZKTopology, version string) {
 	fmt.Printf("ZooKeeper ensemble %q will be deployed (version: %s)\n\n", topo.Name, version)
+	installPath := zkInstallPath(topo.Path, version)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ROLE\tHOST\tPORTS\tDIRECTORIES")
+	fmt.Fprintln(w, "MYID\tHOST\tPORTS\tDIRECTORIES")
 	fmt.Fprintln(w, "\t\t\t\t")
 	for _, s := range topo.Servers {
 		host, clientPort, quorumPort, electionPort := s.ParseAddress()
 		ports := fmt.Sprintf("%s/%s/%s", clientPort, quorumPort, electionPort)
-		fmt.Fprintf(w, "zookeeper\t%s\t%s\t%s\n", host, ports, topo.Path)
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", s.MyID, host, ports, installPath)
 	}
 	w.Flush()
 
@@ -91,5 +92,12 @@ func printRecoveryGuide(deployed []topology.ZKServer, topo *topology.ZKTopology)
 		fmt.Printf("  - %s (myid=%d)\n", s.Host(), s.MyID)
 	}
 	fmt.Println("\nTo clean up, manually run on each server:")
-	fmt.Printf("  rm -rf %s/conf_myid_<myid>\n", topo.Path)
+	for _, server := range deployed {
+		confDir := zkConfigDir(topo.Path, topo.Name, server.MyID)
+		dataDir := zkNodeDataPath(server.Config.DataDir, server.MyID)
+		dataLogDir := zkNodeDataPath(server.Config.DataLogDir, server.MyID)
+
+		fmt.Printf("  %s:\n", server.Host())
+		fmt.Printf("      rm -rf %s %s %s\n", confDir, dataDir, dataLogDir)
+	}
 }

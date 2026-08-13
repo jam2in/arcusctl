@@ -8,7 +8,7 @@ import (
 )
 
 func Stop(ensembleName string, myID int) error {
-	_, topo, err := loadEnsemble(ensembleName)
+	meta, topo, err := loadEnsemble(ensembleName)
 	if err != nil {
 		return err
 	}
@@ -20,7 +20,7 @@ func Stop(ensembleName string, myID int) error {
 			return err
 		}
 
-		if err := stopServer(*server, topo.Path); err != nil {
+		if err := stopServer(*server, topo.Path, topo.Name, meta.Version); err != nil {
 			return err
 		}
 
@@ -29,7 +29,7 @@ func Stop(ensembleName string, myID int) error {
 	}
 
 	for _, server := range topo.Servers {
-		if err := stopServer(server, topo.Path); err != nil {
+		if err := stopServer(server, topo.Path, topo.Name, meta.Version); err != nil {
 			return err
 		}
 	}
@@ -38,9 +38,17 @@ func Stop(ensembleName string, myID int) error {
 	return nil
 }
 
-func stopServer(server topology.ZKServer, topoPath string) error {
+func stopServer(
+	server topology.ZKServer,
+	topoPath string,
+	ensembleName string,
+	version string,
+) error {
 	fmt.Printf("Stopping %s (myid=%d)...\n", server.Host(), server.MyID)
-	cmd := fmt.Sprintf("%s stop %s", zkServerScript(topoPath), zkConfigPath(topoPath, server.MyID))
+
+	scriptPath := zkServerScript(topoPath, version)
+	configPath := zkConfigPath(topoPath, ensembleName, server.MyID)
+	cmd := fmt.Sprintf("%s stop %s", scriptPath, configPath)
 	if err := ssh.Run(server.Host(), cmd); err != nil {
 		return fmt.Errorf("stop %s: %w", server.Host(), err)
 	}

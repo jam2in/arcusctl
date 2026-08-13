@@ -26,10 +26,10 @@ global_config:
   # optional (default: 5) - ticks between request and ack
   sync_limit: 5
 
-  # required
+  # optional (default: <path>/data/<name>)
   data_dir: /var/lib/zk/data
 
-  # optional (default: data_dir) - dedicated disk recommended
+  # optional (default: data_dir) 
   data_log_dir: /var/lib/zk/datalog
 
   # optional - other ZK options (string values only)
