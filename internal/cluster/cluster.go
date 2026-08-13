@@ -33,8 +33,7 @@ func loadCluster(serviceCode string) (
 // installed there from same path and version.
 func sharingCluster(
 	serviceCode string,
-	topoPath string,
-	version string,
+	installPath string,
 	host string,
 ) (string, error) {
 	registered, err := store.ListCluster()
@@ -57,8 +56,8 @@ func sharingCluster(
 			continue
 		}
 
-		if topo.Path == topoPath &&
-			meta.Version == version &&
+		otherInstallPath := memcachedInstallPath(topo.Path, meta.Version)
+		if installPath == otherInstallPath &&
 			hasServerOn(topo.Servers, host) {
 			return other, nil
 		}
@@ -68,10 +67,10 @@ func sharingCluster(
 }
 
 func hasServerOn(
-	topoServers []topology.CacheServer,
+	cacheServers []topology.CacheServer,
 	host string,
 ) bool {
-	for _, server := range topoServers {
+	for _, server := range cacheServers {
 		if server.Host() == host {
 			return true
 		}

@@ -17,13 +17,15 @@ func buildConfig(server topology.ZKServer, topo *topology.ZKTopology) string {
 	var sb strings.Builder
 
 	cfg := server.Config
-	dynamicConfigPath := fmt.Sprintf("%s/conf_myid_%d/zoo.cfg.dynamic", topo.Path, server.MyID)
+	dataDir := zkNodeDataPath(cfg.DataDir, server.MyID)
+	dataLogDir := zkNodeDataPath(cfg.DataLogDir, server.MyID)
+	dynamicConfigPath := zkDynamicConfigPath(topo.Path, topo.Name, server.MyID)
 
 	fmt.Fprintf(&sb, "tickTime=%d\n", cfg.TickTime)
 	fmt.Fprintf(&sb, "initLimit=%d\n", cfg.InitLimit)
 	fmt.Fprintf(&sb, "syncLimit=%d\n", cfg.SyncLimit)
-	fmt.Fprintf(&sb, "dataDir=%s/zk%d\n", cfg.DataDir, server.MyID)
-	fmt.Fprintf(&sb, "dataLogDir=%s/zk%d\n", cfg.DataLogDir, server.MyID)
+	fmt.Fprintf(&sb, "dataDir=%s\n", dataDir)
+	fmt.Fprintf(&sb, "dataLogDir=%s\n", dataLogDir)
 	fmt.Fprintf(&sb, "dynamicConfigFile=%s\n", dynamicConfigPath)
 
 	sb.WriteString("standaloneEnabled=false\n")

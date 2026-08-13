@@ -63,10 +63,6 @@ func (topo *ZKTopology) Validate() error {
 			return fmt.Errorf("duplicate address: %s", s.Address)
 		}
 		seenAddress[s.Address] = true
-
-		if s.Config.DataDir == "" {
-			return fmt.Errorf("server myid=%d: data_dir is required", s.MyID)
-		}
 	}
 
 	return nil

@@ -55,7 +55,7 @@ func removeInstallationDirs(
 	installPath := memcachedInstallPath(topo.Path, version)
 
 	for _, host := range distinctHosts(topo.Servers) {
-		other, err := sharingCluster(serviceCode, topo.Path, version, host)
+		other, err := sharingCluster(serviceCode, installPath, host)
 		if err != nil {
 			return err
 		}

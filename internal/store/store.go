@@ -190,7 +190,7 @@ func ListCluster() ([]string, error) {
 }
 
 func zkBaseDir() string {
-	return filepath.Join(internal.Config.Home, "clusters", "zk")
+	return filepath.Join(internal.Config.Home, "clusters", "zookeeper")
 }
 
 func zkDir(ensembleName string) string {
