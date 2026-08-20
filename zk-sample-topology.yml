@@ -1,20 +1,21 @@
 # For more configuration options, see:
 # https://zookeeper.apache.org/doc/r3.5.9/zookeeperAdmin.html#sc_configuration
+# 192.0.2.0/24 is reserved for documentation. Replace it with addresses from your environment.
 
 name: my-ensemble                                # required
 path: /home/arcus/zookeeper                      # required
 
 servers:
   - myid: 1                                      # required
-    address: zk1:2181:2888:3888                  # required (host:clientPort:quorumPort:electionPort)
+    address: 192.0.2.11:2181:2888:3888           # required (host:clientPort:quorumPort:electionPort)
     config:                                      # optional - per-node override
-      data_log_dir: /data/zk1-txlog
+      data_log_dir: /data/zookeeper/txlog-1
 
   - myid: 2
-    address: zk2:2181:2888:3888
+    address: 192.0.2.12:2181:2888:3888
 
   - myid: 3
-    address: zk3:2181:2888:3888
+    address: 192.0.2.13:2181:2888:3888
 
 global_config:
   # optional (default: 2000)
