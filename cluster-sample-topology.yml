@@ -1,16 +1,17 @@
 # For more configuration options, see:
 # https://github.com/naver/arcus-memcached/blob/master/docs/administration/commandline_args.md
+# 192.0.2.0/24 is reserved for documentation. Replace it with addresses from your environment.
 
 servicecode: my-cluster                          # required
 path: /home/arcus/arcus-memcached                # required
-zookeeper: zk1:2181,zk2:2181,zk3:2181            # required (comma-separated ensemble)
+zookeeper: 192.0.2.11:2181,192.0.2.12:2181,192.0.2.13:2181 # required (comma-separated ensemble)
 
 servers:
-  - address: cache1:11211                        # required (host:port)
-  - address: cache2:11211
-  - address: cache3:11211
+  - address: 192.0.2.21:11211                    # required (host:port)
+  - address: 192.0.2.22:11211
+  - address: 192.0.2.23:11211
     config:                                      # optional - per-node override
-      options: "-l 192.168.1.3"                  # optional - override global options (-p, -P, -z, -d are not allowed)
+      options: "-m 128 -v"                       # optional - override global options (-p, -P, -z, -d are not allowed)
 
 global_config:
   options: "-t 4 -c 1024 -b 1024 -B auto -m 64"  # memcached command-line arguments
@@ -20,7 +21,7 @@ global_config:
 # Community and enterprise servers cannot be mixed in the same cluster.
 #
 # servers:
-#   - address: cache1:11211
+#   - address: 192.0.2.21:11211
 #     group: { name: g1, role: master, port: 33533 }
-#   - address: cache2:11211
+#   - address: 192.0.2.22:11211
 #     group: { name: g1, role: slave, port: 33533 }
