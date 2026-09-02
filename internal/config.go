@@ -40,6 +40,7 @@ func InitConfig() {
 		panic(err)
 	}
 	v.SetDefault("home", filepath.Join(homeDir, ".arcusctl"))
+	v.SetDefault("zookeeper", "localhost:2181")
 
 	v.SetEnvPrefix("ARCUSCTL")
 	v.AutomaticEnv()
