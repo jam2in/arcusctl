@@ -10,17 +10,18 @@ arcusctl은 원격 장비에 별도 에이전트를 설치하지 않습니다. �
 운영 장비
   ├─ SSH/SCP ───────> ZooKeeper 서버가 실행되는 원격 장비
   ├─ SSH/SCP ───────> 캐시 서버가 실행되는 원격 장비
-  └─ ZooKeeper 연결 ─> Arcus 클러스터 ZNode 등록·조회·삭제
+  └─ ZooKeeper 연결 ─> Arcus 클러스터 ZNode 등록/조회/삭제
 ```
 
 ## 용어
 
-| 용어           | 의미                                                       |
-|----------------|------------------------------------------------------------|
-| 운영 장비      | arcusctl을 실행하고 메타데이터 및 아카이브를 저장하는 장비 |
-| 원격 장비      | arcusctl이 SSH와 SCP로 관리하는 장비                       |
-| ZooKeeper 서버 | `myid`로 구분되는 ZooKeeper 프로세스                       |
-| 캐시 서버      | `<host>:<port>`로 구분되는 Arcus memcached 프로세스        |
+| 용어           | 의미                                                                                |
+|----------------|-------------------------------------------------------------------------------------|
+| 운영 장비      | arcusctl을 실행하고 메타데이터 및 아카이브를 저장하는 장비                          |
+| 원격 장비      | arcusctl이 SSH와 SCP로 관리하는 ZooKeeper 서버 또는 캐시 서버 장비                  |
+| ZooKeeper 서버 | `myid`로 구분되는 ZooKeeper 프로세스                                                |
+| 캐시 서버      | `<host>:<port>`로 구분되는 Arcus memcached 프로세스                                 |
+| 토폴로지       | ZooKeeper 앙상블 또는 Arcus 클러스터를 구성하는 서버와 배포 설정을 정의한 YAML 파일 |
 
 ## 실행 환경 준비
 
@@ -69,12 +70,12 @@ ssh -o BatchMode=yes -o ConnectTimeout=10 <host> hostname
 
 ## 운영 장비의 상태 및 아카이브
 
-`home`은 arcusctl이 운영 장비에 아카이브와 배포 상태를 저장하는 기준 디렉터리입니다. 기본값은 `~/.arcusctl`입니다.
+`home`은 `arcusctl` 실행 파일의 설치 디렉터리와는 별개로, 운영 장비에 아카이브와 배포 상태를 저장하기 위해 내부적으로 사용하는 기준 디렉터리입니다. 
 
-설정 파일의 `home` 또는 `ARCUSCTL_HOME` 환경 변수로 다른 경로를 지정할 수 있습니다.
+`home`의 기본값은 `~/.arcusctl`이며, 설정 파일의 `home` 또는 `ARCUSCTL_HOME` 환경 변수로 다른 경로를 지정할 수 있습니다.
 
 ```text
-~/.arcusctl/
+<home>/
 ├── images/
 │   ├── arcus-community/
 │   │   └── arcus-memcached-<version>.tar.gz
@@ -171,5 +172,5 @@ ZooKeeper와 Arcus 클러스터 모두 설치와 프로세스 실행이 분리�
 
 자세한 토폴로지 작성 방법과 명령별 동작은 다음 문서를 참고하세요.
 
-- [ZooKeeper 운영 가이드](zk-guide.md)
-- [Arcus 클러스터 운영 가이드](cluster-guide.md)
+- [ZooKeeper 운영 가이드](1-zk-guide.md)
+- [Arcus 클러스터 운영 가이드](2-cluster-guide.md)

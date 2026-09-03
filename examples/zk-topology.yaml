@@ -3,7 +3,7 @@
 # 192.0.2.0/24 is reserved for documentation. Replace it with addresses from your environment.
 
 name: my-ensemble                                # required
-path: /home/arcus/zookeeper                      # required
+path: /home/arcus/apps/zookeeper                      # required
 
 servers:
   - myid: 1                                      # required
@@ -30,7 +30,7 @@ global_config:
   # optional (default: <path>/data/<name>)
   data_dir: /var/lib/zk/data
 
-  # optional (default: data_dir) 
+  # optional (default: data_dir)
   data_log_dir: /var/lib/zk/datalog
 
   # optional - other ZK options (string values only)

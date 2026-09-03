@@ -1,0 +1,4 @@
+zookeeper: 192.0.2.11:2181,192.0.2.12:2181,192.0.2.13:2181
+
+# Optional (default: ~/.arcusctl)
+# home: /var/lib/arcusctl

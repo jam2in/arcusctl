@@ -2,7 +2,7 @@
 
 이 문서는 arcusctl을 사용해 community 또는 enterprise Arcus 클러스터를 배포하고 시작, 상태 확인, 중지 및 삭제하는 방법을 설명합니다.
 
-배포에 필요한 환경과 운영 장비의 상태 저장 방식은 [arcusctl 시작하기](getting-started.md)를 먼저 참고하세요.
+배포에 필요한 환경과 운영 장비의 상태 저장 방식은 [arcusctl 시작하기](0-getting-started.md)를 먼저 참고하세요.
 
 ## 운영 흐름
 
@@ -30,13 +30,16 @@ ZooKeeper 준비 -> 토폴로지 작성 -> deploy -> start -> status / list -> s
 
 ## 토폴로지 작성
 
-저장소의 [cluster-sample-topology.yml](../../cluster-sample-topology.yml)을 복사한 뒤 환경에 맞게 수정할 수 있습니다.
+Edition에 맞는 토폴로지 예시를 복사한 뒤 환경에 맞게 수정할 수 있습니다.
+
+- [Community 토폴로지 예시](../examples/cluster-community-topology.yaml)
+- [Enterprise 토폴로지 예시](../examples/cluster-enterprise-topology.yaml)
 
 ### Community 예시
 
 ```yaml
 servicecode: my-cluster
-path: /home/arcus/arcus-memcached
+path: /home/arcus/apps/arcus-memcached
 zookeeper: 192.0.2.11:2181,192.0.2.12:2181,192.0.2.13:2181
 
 servers:
@@ -56,7 +59,7 @@ global_config:
 
 ```yaml
 servicecode: my-repl-cluster
-path: /home/arcus/arcus-memcached
+path: /home/arcus/apps/arcus-memcached
 zookeeper: 192.0.2.11:2181,192.0.2.12:2181,192.0.2.13:2181
 
 servers:
@@ -122,11 +125,55 @@ arcusctl cluster deploy <version> <topology.yml>
 
 ### 실행 예시
 
+배포를 시작하기 전에 배포 대상과 설치 경로를 출력하고 진행 여부를 확인합니다.
+
+#### Community 
+
 ```sh
-arcusctl cluster deploy 1.16.0 cluster-topology.yml
+arcusctl cluster deploy 1.16.1 community-topology.yml
 ```
 
-`deploy`는 토폴로지와 서비스코드의 중복 여부를 검증하고 배포 대상을 출력합니다. 사용자가 배포를 승인하면 다음 작업을 수행합니다.
+```text
+Arcus cluster "my-cluster" will be deployed (edition: community, version: 1.16.1)
+
+ADDRESS             DIRECTORY
+
+192.0.2.21:11211    /home/arcus/apps/arcus-memcached/1.16.1
+192.0.2.22:11211    /home/arcus/apps/arcus-memcached/1.16.1
+192.0.2.23:11211    /home/arcus/apps/arcus-memcached/1.16.1
+
+Attention:
+  1. If the topology is not what you expected, check your yaml file.
+  2. Please confirm there is no port/directory conflicts in same host.
+Proceed with deployment? (y/N):
+```
+
+#### Enterprise
+
+```sh
+arcusctl cluster deploy 0.12.1-E enterprise-topology.yml
+```
+
+Enterprise 클러스터는 배포 대상의 replication group, role도 함께 출력합니다.
+
+```text
+Arcus cluster "my-repl-cluster" will be deployed (edition: enterprise, version: 0.12.1-E)
+
+GROUP  ROLE    ADDRESS             DIRECTORY
+
+g1     master  192.0.2.21:11211    /home/arcus/apps/arcus-memcached/0.12.1-E
+g1     slave   192.0.2.22:11211    /home/arcus/apps/arcus-memcached/0.12.1-E
+g2     master  192.0.2.23:11211    /home/arcus/apps/arcus-memcached/0.12.1-E
+g2     slave   192.0.2.24:11211    /home/arcus/apps/arcus-memcached/0.12.1-E
+
+Attention:
+  1. If the topology is not what you expected, check your yaml file.
+  2. Please confirm there is no port/directory conflicts in same host.
+Proceed with deployment? (y/N):
+```
+
+`deploy`는 토폴로지 유효성을 검증하고, 운영 장비와 ZooKeeper에 동일한 서비스코드가 이미 등록되어 있는지 확인합니다.
+사용자가 배포를 승인하면 다음 작업을 수행합니다. 
 
 - 원격 장비에 버전별 Arcus 바이너리를 설치하거나 기존 설치를 재사용합니다.
 - ZooKeeper에 클러스터와 캐시 서버의 등록 정보를 생성합니다.
@@ -208,7 +255,7 @@ ZooKeeper에 클러스터 등록 정보가 일부 생성되었는지 확인하�
 <home>/clusters/arcus/<servicecode>
 ```
 
-`<path>/<version>`은 같은 원격 장비의 다른 클러스터가 사용중일 수 있으므로 롤백을 위한 삭제 시 주의가 필요합니다.
+`<path>/<version>`은 같은 원격 장비의 다른 클러스터가 공유할 수 있으므로 삭제하기 전에 사용 여부를 확인하세요.
 
 ## `cluster start`
 
@@ -260,16 +307,47 @@ arcusctl cluster status <servicecode>
 
 ### 실행 예시
 
+#### Community
+
 ```sh
 arcusctl cluster status my-cluster
 ```
 
-캐시 서버별로 다음 상태를 출력합니다. Enterprise 클러스터에서는 `GROUP`과 `ROLE`도 함께 표시합니다.
+캐시 서버별 프로세스 실행 상태와 ZooKeeper 등록 여부를 다음과 같이 출력합니다.
 
-| 상태             | 의미                                            | 값                   |
-|------------------|-------------------------------------------------|----------------------|
-| `PROCESS_STATUS` | 원격 장비에서 해당 캐시 서버의 실행 여부        | `running`, `stopped` |
-| `ZK_REGISTERED`  | ZooKeeper에 캐시 서버 mapping이 존재하는지 여부 | `yes`, `no`          |
+```text
+Arcus cluster "my-cluster" (edition: community, version: 1.16.1)
+
+ADDRESS           PROCESS_STATUS  ZK_REGISTERED
+192.0.2.21:11211  running         yes
+192.0.2.22:11211  running         yes
+192.0.2.23:11211  running         yes
+```
+
+#### Enterprise
+
+```sh
+arcusctl cluster status my-repl-cluster
+```
+
+Enterprise 클러스터는 replication group과 각 캐시 서버의 역할도 함께 출력합니다.
+
+```text
+Arcus cluster "my-repl-cluster" (edition: enterprise, version: 0.12.1-E)
+
+GROUP  ROLE    ADDRESS           PROCESS_STATUS  ZK_REGISTERED
+g1     master  192.0.2.21:11211  running         yes
+g1     slave   192.0.2.22:11211  running         yes
+g2     master  192.0.2.23:11211  running         yes
+g2     slave   192.0.2.24:11211  running         yes
+```
+
+출력 상태는 다음과 같습니다.
+
+| 상태             | 의미                                   | 값                   |
+|------------------|----------------------------------------|----------------------|
+| `PROCESS_STATUS` | 원격 장비에서 해당 캐시 서버 실행 여부 | `running`, `stopped` |
+| `ZK_REGISTERED`  | ZooKeeper에 캐시 서버 매핑 존재 여부   | `yes`, `no`          |
 
 ## `cluster list`
 
@@ -281,6 +359,14 @@ arcusctl cluster status my-cluster
 arcusctl cluster list
 ```
 
+현재 운영 장비에 저장된 배포 정보를 기준으로 Arcus 클러스터 목록을 다음과 같이 출력합니다.
+
+```text
+SERVICECODE      VERSION   EDITION     NODES  DEPLOYED_AT
+my-cluster       1.16.1    community   3      2026-08-01 12:30:02
+my-repl-cluster  0.12.1-E  enterprise  4      2026-09-01 01:00:13
+```
+
 다음 정보를 표시합니다.
 
 - 서비스코드
@@ -290,7 +376,6 @@ arcusctl cluster list
 - 배포 시간
 
 `list`는 실행 중인 캐시 서버를 자동으로 탐색하지 않습니다.
-현재 운영 장비에 저장된 메타데이터를 기준으로 목록을 출력합니다.
 
 ## `cluster stop`
 
@@ -332,17 +417,20 @@ Enterprise 클러스터는 `slave`를 먼저 중지한 뒤 `master`를 중지합
 
 ## `cluster delete`
 
-Arcus 클러스터의 ZNode와 운영 장비의 메타데이터 및 토폴로지를 삭제합니다.
-
-- 기본 `delete`는 원격 장비의 버전별 설치 디렉터리를 보존합니다.
-- `--purge` 옵션을 지정하면 운영 장비에 저장된 배포 정보를 기준으로 다른 클러스터가 같은 원격 장비의 `<path>/<version>`을 사용하는지 확인합니다.
-    - 해당 설치를 공유하는 다른 클러스터가 없는 경우 설치 디렉터리까지 삭제합니다.
+Arcus 클러스터를 삭제합니다.
 
 ### 명령 형식
 
 ```sh
 arcusctl cluster delete <servicecode> [--purge]
 ```
+
+- 기본 `delete`는 Arcus 클러스터를 제거하지만, 원격 장비의 버전별 설치 디렉터리는 보존합니다.
+  - Arcus 클러스터의 ZNode를 삭제합니다.
+  - 운영 장비에서 `meta.yml`과 `topology.yml`을 삭제합니다.
+- `--purge` 옵션을 지정하면 운영 장비에 저장된 배포 정보를 기준으로 다른 클러스터가 같은 원격 장비의 `<path>/<version>`을 사용하는지 확인합니다.
+  - 해당 설치를 공유하는 다른 클러스터가 없는 경우 설치 디렉터리까지 삭제합니다.
+
 
 ### 실행 예시
 
@@ -371,7 +459,7 @@ Enterprise 클러스터는 다음 정보도 제거합니다.
 
 기본 `delete`는 원격 장비의 버전별 설치 디렉터리를 보존합니다.
 
-`--purge` 옵션으로 인해 삭제되는 경로는 다음과 같습니다.
+`--purge`로 추가되는 삭제 경로는 다음과 같습니다.
 
 ```text
 <path>/<version>
