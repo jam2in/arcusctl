@@ -1,0 +1,23 @@
+# For more configuration options, see:
+# https://github.com/naver/arcus-memcached/blob/master/docs/administration/commandline_args.md
+# 192.0.2.0/24 is reserved for documentation. Replace it with addresses from your environment.
+
+servicecode: my-repl-cluster                     # required
+path: /home/arcus/apps/arcus-memcached                # required
+zookeeper: 192.0.2.11:2181,192.0.2.12:2181,192.0.2.13:2181 # required (comma-separated ensemble)
+
+servers:
+  - address: 192.0.2.21:11211                    # required (host:port)
+    group:
+      name: g1                                   # required
+      role: master                               # required (master or slave)
+      port: 33533                                # required (replication port)
+
+  - address: 192.0.2.22:11211
+    group:
+      name: g1
+      role: slave
+      port: 33533
+
+global_config:
+  options: "-t 8 -m 128"                         # memcached command-line arguments

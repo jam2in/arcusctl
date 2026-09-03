@@ -3,7 +3,7 @@
 # 192.0.2.0/24 is reserved for documentation. Replace it with addresses from your environment.
 
 servicecode: my-cluster                          # required
-path: /home/arcus/arcus-memcached                # required
+path: /home/arcus/apps/arcus-memcached                # required
 zookeeper: 192.0.2.11:2181,192.0.2.12:2181,192.0.2.13:2181 # required (comma-separated ensemble)
 
 servers:
@@ -14,14 +14,4 @@ servers:
       options: "-m 128 -v"                       # optional - override global options (-p, -P, -z, -d are not allowed)
 
 global_config:
-  options: "-t 4 -c 1024 -b 1024 -B auto -m 64"  # memcached command-line arguments
-  
-# Enterprise edition: every server must have a `group` block.
-# Each group must have exactly one master and at most one slave.
-# Community and enterprise servers cannot be mixed in the same cluster.
-#
-# servers:
-#   - address: 192.0.2.21:11211
-#     group: { name: g1, role: master, port: 33533 }
-#   - address: 192.0.2.22:11211
-#     group: { name: g1, role: slave, port: 33533 }
+  options: "-t 4 -c 1024 -b 1024 -B auto -m 64" # memcached command-line arguments

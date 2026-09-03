@@ -2,7 +2,7 @@
 
 이 문서는 arcusctl을 사용해 ZooKeeper 앙상블을 배포하고 시작, 상태 확인, 중지 및 삭제하는 방법을 설명합니다.
 
-배포에 필요한 환경과 운영 장비의 상태 저장 방식은 [arcusctl 시작하기](getting-started.md)를 먼저 참고하세요.
+배포에 필요한 환경과 운영 장비의 상태 저장 방식은 [arcusctl 시작하기](0-getting-started.md)를 먼저 참고하세요.
 
 ## 운영 흐름
 
@@ -28,11 +28,11 @@ ZooKeeper 앙상블은 다음 순서로 배포하고 관리합니다.
 
 ## 토폴로지 작성
 
-저장소의 [zk-sample-topology.yml](../../zk-sample-topology.yml)을 복사한 뒤 환경에 맞게 수정할 수 있습니다.
+저장소의 [ZooKeeper 토폴로지 예시](../examples/zk-topology.yaml)를 복사한 뒤 환경에 맞게 수정할 수 있습니다.
 
 ```yaml
 name: my-ensemble
-path: /home/arcus/zookeeper
+path: /home/arcus/apps/zookeeper
 
 servers:
   - myid: 1
@@ -88,7 +88,7 @@ ZooKeeper 서버별 `servers[].config`는 `global_config`에 병합됩니다.
 - 전역 설정과 서버별 설정에서 모두 `data_dir`을 생략하면 `<path>/data/<ensemble-name>`을 사용합니다.
 - 전역 설정과 서버별 설정에서 모두 `data_log_dir`을 생략하면 해당 ZooKeeper 서버의 최종 `data_dir`을 사용합니다.
 
-각 ZooKeeper 서버의 실제 데이터 및 로그 경로에는 `myid`가 붙습니다.
+각 ZooKeeper 서버의 실제 데이터 및 로그 경로에는 `zk<myid>` 하위 디렉터리가 추가됩니다. 
 
 ```text
 <data_dir>/zk<myid>
@@ -119,7 +119,24 @@ arcusctl zk deploy <version> <topology.yml>
 arcusctl zk deploy 3.5.9 zk-topology.yml
 ```
 
-`deploy`는 토폴로지와 앙상블 이름의 중복 여부를 검증하고 배포 대상을 출력합니다. 사용자가 배포를 승인하면 다음 작업을 수행합니다.
+배포를 시작하기 전에 배포 대상과 설치 경로를 다음과 같이 출력하고 진행 여부를 확인합니다.
+
+```text
+ZooKeeper ensemble "my-ensemble" will be deployed (version: 3.5.9)
+
+MYID  HOST          PORTS           DIRECTORIES
+
+1     192.0.2.11    2181/2888/3888  /home/arcus/apps/zookeeper/3.5.9
+2     192.0.2.12    2181/2888/3888  /home/arcus/apps/zookeeper/3.5.9
+3     192.0.2.13    2181/2888/3888  /home/arcus/apps/zookeeper/3.5.9
+
+Attention:
+  1. If the topology is not what you expected, check your yaml file.
+  2. Please confirm there is no port/directory conflicts in same host.
+Proceed with deployment? (y/N):
+```
+
+`deploy`는 토폴로지의 유효성과 앙상블 이름의 중복 여부를 검증합니다. 사용자가 배포를 승인하면 다음 작업을 수행합니다.
 
 - 원격 장비에 버전별 ZooKeeper 바이너리를 설치하거나 기존 설치를 재사용합니다.
 - ZooKeeper 서버별 설정과 데이터 및 로그 디렉터리를 생성합니다.
@@ -200,7 +217,7 @@ ZooKeeper 바이너리는 원격 장비의 `<path>/<version>`에 설치됩니다
 <home>/clusters/zookeeper/<ensemble-name>
 ```
 
-`<path>/<version>`은 같은 원격 장비의 다른 앙상블이 사용중일 수 있으므로 롤백을 위한 삭제 시 주의가 필요합니다. 데이터와 로그 경로는 보존 필요 여부를 확인한 후 정리하세요.
+`<path>/<version>`은 다른 앙상블이 공유하여 사용할 수 있으므로 삭제하기 전에 사용 여부를 확인하세요. 데이터와 로그 경로는 보존 필요 여부를 확인한 후 정리하세요.
 
 ## `zk start`
 
@@ -247,16 +264,29 @@ arcusctl zk status <ensemble-name>
 arcusctl zk status my-ensemble
 ```
 
-앙상블 내 ZooKeeper 서버별로 다음 정보를 출력합니다.
+앙상블의 각 ZooKeeper 서버에 대해 원격 장비 주소와 `myid`를 표시한 후, 
+해당 서버에서 `zkServer.sh status <zoo.cfg>`를 실행한 결과를 출력합니다.
 
-- 원격 장비 주소와 `myid`
-- ZooKeeper 서버 상태
-- leader 또는 follower 역할
+다음은 정상적으로 실행 중인 앙상블의 주요 출력만 나타낸 예시입니다.
 
-특정 ZooKeeper 서버의 상태 확인에 실패해도 나머지 서버의 상태를 계속 확인합니다.
+```text
+Ensemble: my-ensemble (version: 3.5.9)
 
-> [!NOTE]
-> 앙상블의 quorum이 정상인지 판단하려면 모든 ZooKeeper 서버의 결과와 leader/follower 구성을 함께 확인하세요.
+=== 192.0.2.11 (myid=1) ===
+Using config: /home/arcus/apps/zookeeper/conf/my-ensemble/zk1/zoo.cfg
+Client port found: 2181. Client address: localhost. Client SSL: false.
+Mode: follower
+
+=== 192.0.2.12 (myid=2) ===
+Using config: /home/arcus/apps/zookeeper/conf/my-ensemble/zk2/zoo.cfg
+Client port found: 2181. Client address: localhost. Client SSL: false.
+Mode: leader
+
+=== 192.0.2.13 (myid=3) ===
+Using config: /home/arcus/apps/zookeeper/conf/my-ensemble/zk3/zoo.cfg
+Client port found: 2181. Client address: localhost. Client SSL: false.
+Mode: follower
+```
 
 ## `zk list`
 
@@ -268,14 +298,22 @@ arcusctl zk status my-ensemble
 arcusctl zk list
 ```
 
-다음 정보를 표시합니다.
+현재 운영 장비에 저장된 메타데이터를 기준으로 ZooKeeper 앙상블 목록을 다음과 같이 출력합니다.
+
+```text
+NAME            VERSION  DEPLOYED AT
+dev-ensemble    3.4.6    2026-08-14 12:30:14
+prod-ensemble   3.4.5    2026-06-21 01:00:03
+test-ensemble   3.5.9    2026-09-01 14:44:03
+```
+
+출력 항목은 다음과 같습니다. 
 
 - 앙상블 이름
 - ZooKeeper 버전
 - 배포 시간
 
 `list`는 실행 중인 ZooKeeper 서버를 자동으로 탐색하지 않습니다.
-현재 운영 장비에 저장된 메타데이터를 기준으로 목록을 출력합니다.
 
 ## `zk stop`
 
@@ -307,17 +345,19 @@ arcusctl zk stop my-ensemble --node 2
 
 ## `zk delete`
 
-ZooKeeper 앙상블의 설정과 데이터 및 운영 장비의 메타데이터와 토폴로지를 삭제합니다.
-
-- 기본 `delete`는 앙상블의 설정과 데이터를 삭제하지만 버전별 설치 디렉터리는 보존합니다.
-- `--purge` 옵션을 지정하면 운영 장비에 저장된 배포 정보를 기준으로 다른 앙상블이 같은 원격 장비의 `<path>/<version>`을 사용하는지 확인합니다.
-    - 해당 설치를 공유하는 다른 앙상블이 없는 경우 설치 디렉터리까지 삭제합니다.
+ZooKeeper 앙상블을 삭제합니다.
 
 ### 명령 형식
 
 ```sh
 arcusctl zk delete <ensemble-name> [--purge]
 ```
+
+- 기본 `delete`는 앙상블의 설정과 데이터를 삭제하지만 버전별 설치 디렉터리는 보존합니다.
+  - 운영 장비에서 `meta.yml`과 `topology.yml`을 삭제합니다.
+  - 원격 장비에서 ZooKeeper 앙상블 설정과 데이터 및 로그 파일을 삭제합니다.
+- `--purge` 옵션을 지정하면 운영 장비에 저장된 배포 정보를 기준으로 다른 앙상블이 같은 원격 장비의 `<path>/<version>`을 사용하는지 확인합니다.
+    - 해당 설치를 공유하는 다른 앙상블이 없는 경우 설치 디렉터리까지 삭제합니다.
 
 ### 실행 예시
 
@@ -338,7 +378,7 @@ arcusctl zk delete my-ensemble --purge
 <data_log_dir>/zk<myid>
 ```
 
-`--purge` 옵션으로 인해 삭제되는 경로는 다음과 같습니다.
+`--purge`로 추가되는 삭제 경로는 다음과 같습니다.
 
 ```text
 <path>/<version>
