@@ -17,7 +17,11 @@ func Deploy(version string, topoPath string) error {
 	}
 
 	printPlan(topo, version)
-	if !internal.Confirm("Proceed with deployment? (y/N): ") {
+	confirmed, err := internal.Confirm("Proceed with deployment? (y/N): ")
+	if err != nil {
+		return fmt.Errorf("confirm ZooKeeper deployment: %w", err)
+	}
+	if !confirmed {
 		fmt.Println("Aborted.")
 		return nil
 	}

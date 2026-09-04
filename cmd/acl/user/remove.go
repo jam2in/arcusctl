@@ -20,25 +20,27 @@ and will fail if active connections are found.`,
 	Example: `  # Remove user 'john' from group 'cache01'
   arcusctl acl user remove cache01 john`,
 	Args: cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
 		userName := args[1]
 
-		adminName := internal.ReadStdin("admin name", false)
-		adminPassword := internal.ReadStdin("admin password", true)
+		adminName, adminPassword, err := readAdminCredentials()
+		if err != nil {
+			return err
+		}
 
 		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer conn.Close()
 
 		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
-			panic(err)
+			return fmt.Errorf("authenticate ZooKeeper admin %q: %w", adminName, err)
 		}
 
 		if err := CheckClientList(conn, groupName, userName); err != nil {
-			panic(err)
+			return err
 		}
 
 		if _, err := conn.Multi(
@@ -51,10 +53,11 @@ and will fail if active connections are found.`,
 				Version: -1,
 			},
 		); err != nil {
-			panic(err)
+			return fmt.Errorf("remove ACL user %q from group %q: %w", userName, groupName, err)
 		}
 
 		fmt.Println("OK")
+		return nil
 	},
 }
 

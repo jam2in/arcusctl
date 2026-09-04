@@ -22,7 +22,11 @@ func Delete(serviceCode string, purge bool) error {
 	}
 
 	fmt.Printf("This will remove Arcus cluster %q from all servers.\n", serviceCode)
-	if !internal.Confirm("Are you sure you want to proceed? (y/N): ") {
+	confirmed, err := internal.Confirm("Are you sure you want to proceed? (y/N): ")
+	if err != nil {
+		return fmt.Errorf("confirm Arcus cluster deletion: %w", err)
+	}
+	if !confirmed {
 		fmt.Println("Aborted.")
 		return nil
 	}

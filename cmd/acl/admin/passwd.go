@@ -22,34 +22,48 @@ For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/doc
 	Example: `  # Change admin password for group 'cache01'
   arcusctl acl admin passwd cache01`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
 
-		adminName := internal.ReadStdin("admin name", false)
-		adminPassword := internal.ReadStdin("admin password", true)
-		newPassword := internal.ReadStdin("new password", true)
-		if newPassword != internal.ReadStdin("repeat new password", true) {
-			panic("password does not match")
+		adminName, err := internal.ReadInput("admin name")
+		if err != nil {
+			return fmt.Errorf("read admin name: %w", err)
+		}
+		adminPassword, err := internal.ReadPassword("admin password")
+		if err != nil {
+			return err
+		}
+		newPassword, err := internal.ReadPassword("new password")
+		if err != nil {
+			return err
+		}
+		repeatedPassword, err := internal.ReadPassword("repeat new password")
+		if err != nil {
+			return err
+		}
+		if newPassword != repeatedPassword {
+			return errors.New("password does not match")
 		}
 
 		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer conn.Close()
 
 		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
-			panic(err)
+			return fmt.Errorf("authenticate ZooKeeper admin %q: %w", adminName, err)
 		}
 
 		acls := append(zk.DigestACL(zk.PermAll, adminName, newPassword),
 			zk.WorldACL(zk.PermRead)...)
 
 		if err := setAclRecursive(conn, internal.ZPATH_ACL_ROOT+"/"+groupName, acls); err != nil {
-			panic(err)
+			return err
 		}
 
 		fmt.Println("OK")
+		return nil
 	},
 }
 

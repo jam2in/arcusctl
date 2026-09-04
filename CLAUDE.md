@@ -38,7 +38,9 @@ cmd/                 cobra 커맨드 정의 — 얇게 유지. 인자 파싱과 
 internal/            모든 실제 로직. cmd/에서 로직을 구현하지 않는다.
   config.go          viper 설정 로드 (Flags, Config 전역)
   const.go           ZooKeeper znode 경로 상수
-  util.go            ZK 커넥션/znode 헬퍼, 표준입력 읽기
+  zookeeper.go       ZooKeeper 커넥션/znode 헬퍼
+  prompt.go          표준입력 및 확인 프롬프트
+  password.go        ACL 비밀번호 정책 검증
   topology/          YAML 토폴로지 타입 + Validate() + Load*()
   store/             ~/.arcusctl 하위 배포 메타데이터 영속화
   ssh/               ssh/scp 서브프로세스 실행 래퍼
@@ -86,7 +88,7 @@ internal/            모든 실제 로직. cmd/에서 로직을 구현하지 않
 - 사용자에게 보이는 에러 메시지는 **무엇이 / 왜 실패했고 / 어떻게 복구하는지**를 담는다. 원격 호스트가 관련되면 어느 호스트인지 반드시 포함한다.
 - **cobra 커맨드는 `RunE`로 error를 반환한다.** `cmd.Execute()`가 stderr 출력과 exit code 1을 담당한다. 커맨드 안에서
   `panic()`이나 `os.Exit()`을 부르지 않는다.
-  > 현재 `cmd/` 일부와 `internal/config.go`, `internal/util.go`에 `panic(err)`이
+  > 현재 `cmd/` 일부와 `internal/config.go`에 `panic(err)`이
   > 남아 있다. 이것은 **정리 대상인 과거 패턴**이며 새 코드가 따라갈 기준이 아니다.
   > 건드리는 김에 점진적으로 `RunE` + error 반환으로 옮긴다.
 

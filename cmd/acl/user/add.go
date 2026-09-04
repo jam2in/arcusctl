@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -25,7 +26,7 @@ For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/doc
   # Add a user 'john' for operator with logging enabled
   arcusctl acl user add cache01 john attr,scan,flush,admin logAll`,
 	Args: cobra.RangeArgs(3, 4),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
 		userName := args[1]
 		permissions := args[2]
@@ -33,27 +34,29 @@ For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/doc
 			if args[3] == "logAll" {
 				permissions += ",logall"
 			} else {
-				panic("invalid arguments")
+				return fmt.Errorf("invalid fourth argument %q: expected logAll", args[3])
 			}
 		}
 
-		adminName := internal.ReadStdin("admin name", false)
-		adminPassword := internal.ReadStdin("admin password", true)
-		userPassword := internal.ReadStdin("user password", true)
-		if userPassword != internal.ReadStdin("repeat user password", true) {
-			panic("password does not match")
+		adminName, adminPassword, err := readAdminCredentials()
+		if err != nil {
+			return err
+		}
+		userPassword, err := readConfirmedPassword("user password", "repeat user password")
+		if err != nil {
+			return err
 		}
 
 		secret := scram.GenerateScramSHA256Secret(userPassword, nil, 0)
 
 		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer conn.Close()
 
 		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
-			panic(err)
+			return fmt.Errorf("authenticate ZooKeeper admin %q: %w", adminName, err)
 		}
 
 		acls := append(zk.DigestACL(zk.PermAll, adminName, adminPassword),
@@ -73,10 +76,11 @@ For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/doc
 				Flags: 0,
 			},
 		); err != nil {
-			panic(err)
+			return fmt.Errorf("create ACL user %q in group %q: %w", userName, groupName, err)
 		}
 
 		fmt.Println("OK")
+		return nil
 	},
 }
 
@@ -89,35 +93,38 @@ For password requirements, see: https://github.com/jam2in/arcusctl/blob/main/doc
 	Example: `  # Change password for user 'john' in group 'cache01'
   arcusctl acl user passwd cache01 john`,
 	Args: cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
 		userName := args[1]
 
-		adminName := internal.ReadStdin("admin name", false)
-		adminPassword := internal.ReadStdin("admin password", true)
-		userPassword := internal.ReadStdin("user password", true)
-		if userPassword != internal.ReadStdin("repeat user password", true) {
-			panic("password does not match")
+		adminName, adminPassword, err := readAdminCredentials()
+		if err != nil {
+			return err
+		}
+		userPassword, err := readConfirmedPassword("user password", "repeat user password")
+		if err != nil {
+			return err
 		}
 
 		secret := scram.GenerateScramSHA256Secret(userPassword, nil, 0)
 
 		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer conn.Close()
 
 		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
-			panic(err)
+			return fmt.Errorf("authenticate ZooKeeper admin %q: %w", adminName, err)
 		}
 
 		if _, err := conn.Set(internal.ZPATH_ACL_ROOT+"/"+groupName+"/"+userName+"/"+propName,
 			[]byte(secret.EncodeToBase64()), -1); err != nil {
-			panic(err)
+			return fmt.Errorf("change password for ACL user %q in group %q: %w", userName, groupName, err)
 		}
 
 		fmt.Println("OK")
+		return nil
 	},
 }
 
@@ -131,28 +138,30 @@ The logAll flag will be preserved from the user's existing configuration.`,
 	Example: `  # Update user permissions to key-value only
   arcusctl acl user permissions cache01 john kv`,
 	Args: cobra.ExactArgs(3),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		groupName := args[0]
 		userName := args[1]
 		permissions := args[2]
 
-		adminName := internal.ReadStdin("admin name", false)
-		adminPassword := internal.ReadStdin("admin password", true)
+		adminName, adminPassword, err := readAdminCredentials()
+		if err != nil {
+			return err
+		}
 
 		conn, err := internal.ConnectZooKeeper(internal.Config.ZooKeeper)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer conn.Close()
 
 		if err := conn.AddAuth("digest", []byte(adminName+":"+adminPassword)); err != nil {
-			panic(err)
+			return fmt.Errorf("authenticate ZooKeeper admin %q: %w", adminName, err)
 		}
 
-		// It's pretty stupid
+		// Preserve the existing logall flag while replacing the other permissions.
 		beforePerm, _, err := conn.Get(internal.ZPATH_ACL_ROOT + "/" + groupName + "/" + userName)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("read permissions for ACL user %q in group %q: %w", userName, groupName, err)
 		}
 		beforePermList := strings.Split(string(beforePerm), ",")
 		if beforePermList[len(beforePermList)-1] == "logall" {
@@ -161,9 +170,40 @@ The logAll flag will be preserved from the user's existing configuration.`,
 
 		if _, err := conn.Set(internal.ZPATH_ACL_ROOT+"/"+groupName+"/"+userName,
 			[]byte(permissions), -1); err != nil {
-			panic(err)
+			return fmt.Errorf("update permissions for ACL user %q in group %q: %w", userName, groupName, err)
 		}
 
 		fmt.Println("OK")
+		return nil
 	},
+}
+
+func readAdminCredentials() (string, string, error) {
+	name, err := internal.ReadInput("admin name")
+	if err != nil {
+		return "", "", fmt.Errorf("read admin name: %w", err)
+	}
+
+	password, err := internal.ReadPassword("admin password")
+	if err != nil {
+		return "", "", err
+	}
+
+	return name, password, nil
+}
+
+func readConfirmedPassword(prompt string, repeatPrompt string) (string, error) {
+	password, err := internal.ReadPassword(prompt)
+	if err != nil {
+		return "", err
+	}
+	repeatedPassword, err := internal.ReadPassword(repeatPrompt)
+	if err != nil {
+		return "", err
+	}
+	if password != repeatedPassword {
+		return "", errors.New("password does not match")
+	}
+
+	return password, nil
 }
