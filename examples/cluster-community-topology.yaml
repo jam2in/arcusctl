@@ -13,5 +13,5 @@ servers:
     config:                                      # optional - per-node override
       options: "-m 128 -v"                       # optional - override global options (-p, -P, -z, -d are not allowed)
 
-global_config:
+globalConfig:
   options: "-t 4 -c 1024 -b 1024 -B auto -m 64" # memcached command-line arguments

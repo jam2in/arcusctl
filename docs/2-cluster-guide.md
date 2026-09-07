@@ -51,7 +51,7 @@ servers:
     config:
       options: "-m 128 -v"
 
-global_config:
+globalConfig:
   options: "-t 4 -c 1024 -b 1024 -B auto -m 64"
 ```
 
@@ -75,7 +75,7 @@ servers:
       role: slave
       port: 33533
 
-global_config:
+globalConfig:
   options: "-t 8 -m 128"
 ```
 
@@ -89,7 +89,7 @@ global_config:
 | `servers`                  | 하나 이상의 캐시 서버 목록                    | 예     |
 | `servers[].address`        | `<host>:<port>` 형식의 고유한 캐시 서버 주소  | 예     |
 | `servers[].config.options` | 특정 캐시 서버에 추가할 실행 옵션             | 아니요 |
-| `global_config.options`    | 모든 캐시 서버에 공통으로 적용할 실행 옵션    | 아니요 |
+| `globalConfig.options`     | 모든 캐시 서버에 공통으로 적용할 실행 옵션    | 아니요 |
 | `servers[].group`          | Enterprise 캐시 서버의 replication group 설정 | 조건부 |
 
 하나의 토폴로지에 Community edition 캐시 서버와 Enterprise edition 캐시 서버를 함께 정의할 수 없습니다.

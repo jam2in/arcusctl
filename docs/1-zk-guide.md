@@ -38,7 +38,7 @@ servers:
   - myid: 1
     address: 192.0.2.11:2181:2888:3888
     config:
-      data_log_dir: /data/zookeeper/txlog-1
+      dataLogDir: /data/zookeeper/txlog-1
 
   - myid: 2
     address: 192.0.2.12:2181:2888:3888
@@ -46,12 +46,12 @@ servers:
   - myid: 3
     address: 192.0.2.13:2181:2888:3888
 
-global_config:
-  tick_time: 2000
-  init_limit: 10
-  sync_limit: 5
-  data_dir: /var/lib/zk/data
-  data_log_dir: /var/lib/zk/datalog
+globalConfig:
+  tickTime: 2000
+  initLimit: 10
+  syncLimit: 5
+  dataDir: /var/lib/zk/data
+  dataLogDir: /var/lib/zk/datalog
   properties:
     maxClientCnxns: "60"
     autopurge.snapRetainCount: "10"
@@ -68,31 +68,31 @@ global_config:
 | `servers[].myid`    | 앙상블 안에서 중복되지 않는 ZooKeeper 서버 ID                         | 예     |
 | `servers[].address` | `<host>:<client-port>:<quorum-port>:<election-port>` 형식의 고유 주소 | 예     |
 | `servers[].config`  | 특정 ZooKeeper 서버에 추가하거나 덮어쓸 설정                          | 아니요 |
-| `global_config`     | 모든 ZooKeeper 서버에 공통으로 적용할 설정                            | 아니요 |
+| `globalConfig`      | 모든 ZooKeeper 서버에 공통으로 적용할 설정                            | 아니요 |
 
 ### ZooKeeper 설정
 
-| 필드           | 설명                                                       | 기본값                        |
-|----------------|------------------------------------------------------------|-------------------------------|
-| `tick_time`    | ZooKeeper의 기본 `tick` 시간                               | `2000`                        |
-| `init_limit`   | follower가 leader에 연결하고 동기화할 수 있는 `tick` 수    | `10`                          |
-| `sync_limit`   | follower와 leader 사이의 요청 및 응답에 허용되는 `tick` 수 | `5`                           |
-| `data_dir`     | 스냅샷과 `myid`를 저장할 기준 디렉터리                     | `<path>/data/<ensemble-name>` |
-| `data_log_dir` | 트랜잭션 로그를 저장할 기준 디렉터리                       | 해당 서버의 `data_dir`        |
-| `properties`   | 추가할 `zoo.cfg` 속성                                      | 없음                          |
+| 필드         | 설명                                                       | 기본값                        |
+|--------------|------------------------------------------------------------|-------------------------------|
+| `tickTime`   | ZooKeeper의 기본 `tick` 시간                               | `2000`                        |
+| `initLimit`  | follower가 leader에 연결하고 동기화할 수 있는 `tick` 수    | `10`                          |
+| `syncLimit`  | follower와 leader 사이의 요청 및 응답에 허용되는 `tick` 수 | `5`                           |
+| `dataDir`    | 스냅샷과 `myid`를 저장할 기준 디렉터리                     | `<path>/data/<ensemble-name>` |
+| `dataLogDir` | 트랜잭션 로그를 저장할 기준 디렉터리                       | 해당 서버의 `dataDir`         |
+| `properties` | 추가할 `zoo.cfg` 속성                                      | 없음                          |
 
-ZooKeeper 서버별 `servers[].config`는 `global_config`에 병합됩니다.
+ZooKeeper 서버별 `servers[].config`는 `globalConfig`에 병합됩니다.
 
 - ZooKeeper 서버별 설정에 값이 있으면 같은 이름의 전역 설정을 덮어씁니다.
 - `properties`는 키 단위로 추가하거나 덮어씁니다.
-- 전역 설정과 서버별 설정에서 모두 `data_dir`을 생략하면 `<path>/data/<ensemble-name>`을 사용합니다.
-- 전역 설정과 서버별 설정에서 모두 `data_log_dir`을 생략하면 해당 ZooKeeper 서버의 최종 `data_dir`을 사용합니다.
+- 전역 설정과 서버별 설정에서 모두 `dataDir`을 생략하면 `<path>/data/<ensemble-name>`을 사용합니다.
+- 전역 설정과 서버별 설정에서 모두 `dataLogDir`을 생략하면 해당 ZooKeeper 서버의 최종 `dataDir`을 사용합니다.
 
 각 ZooKeeper 서버의 실제 데이터 및 로그 경로에는 `zk<myid>` 하위 디렉터리가 추가됩니다. 
 
 ```text
-<data_dir>/zk<myid>
-<data_log_dir>/zk<myid>
+<dataDir>/zk<myid>
+<dataLogDir>/zk<myid>
 ```
 
 기본 설정을 사용하는 경우 실제 경로는 다음과 같습니다.
@@ -183,14 +183,14 @@ ZooKeeper 바이너리는 원격 장비의 `<path>/<version>`에 설치됩니다
             └── myid
 ```
 
-위의 `data` 구조는 `data_dir`을 생략한 경우입니다. `data_dir` 또는 `data_log_dir`을 지정하면 각각 다음 경로를 사용합니다.
+위의 `data` 구조는 `dataDir`을 생략한 경우입니다. `dataDir` 또는 `dataLogDir`을 지정하면 각각 다음 경로를 사용합니다.
 
 ```text
-<data_dir>/zk<myid>
-<data_log_dir>/zk<myid>
+<dataDir>/zk<myid>
+<dataLogDir>/zk<myid>
 ```
 
-`data_log_dir`을 생략하면 `data_dir`과 동일한 경로를 사용하므로 스냅샷과 트랜잭션 로그가 같은 `<data_dir>/zk<myid>` 디렉터리에 저장됩니다.
+`dataLogDir`을 생략하면 `dataDir`과 동일한 경로를 사용하므로 스냅샷과 트랜잭션 로그가 같은 `<dataDir>/zk<myid>` 디렉터리에 저장됩니다.
 
 같은 원격 장비의 동일한 `<path>/<version>`은 여러 앙상블이 공유할 수 있습니다.
 `<path>/<version>/bin/zkServer.sh`가 이미 있으면 버전별 바이너리를 재사용하고 앙상블별 설정과 데이터를 생성합니다.
@@ -207,8 +207,8 @@ ZooKeeper 바이너리는 원격 장비의 `<path>/<version>`에 설치됩니다
 ```text
 <path>/<version>
 <path>/conf/<ensemble-name>/zk<myid>
-<data_dir>/zk<myid>
-<data_log_dir>/zk<myid>
+<dataDir>/zk<myid>
+<dataLogDir>/zk<myid>
 ```
 
 운영 장비에 배포 정보가 일부 저장되었을 수 있으므로 다음 경로도 함께 확인하세요.
@@ -374,8 +374,8 @@ arcusctl zk delete my-ensemble --purge
 
 ```text
 <path>/conf/<ensemble-name>/zk<myid>
-<data_dir>/zk<myid>
-<data_log_dir>/zk<myid>
+<dataDir>/zk<myid>
+<dataLogDir>/zk<myid>
 ```
 
 `--purge`로 추가되는 삭제 경로는 다음과 같습니다.

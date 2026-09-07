@@ -18,7 +18,7 @@ type ClusterTopology struct {
 	Path         string        `yaml:"path"`
 	ZooKeeper    string        `yaml:"zookeeper"`
 	Servers      []CacheServer `yaml:"servers"`
-	GlobalConfig CacheConfig   `yaml:"global_config"`
+	GlobalConfig CacheConfig   `yaml:"globalConfig"`
 }
 
 type CacheServer struct {
