@@ -9,7 +9,7 @@ servers:
   - myid: 1                                      # required
     address: 192.0.2.11:2181:2888:3888           # required (host:clientPort:quorumPort:electionPort)
     config:                                      # optional - per-node override
-      data_log_dir: /data/zookeeper/txlog-1
+      dataLogDir: /data/zookeeper/txlog-1
 
   - myid: 2
     address: 192.0.2.12:2181:2888:3888
@@ -17,21 +17,21 @@ servers:
   - myid: 3
     address: 192.0.2.13:2181:2888:3888
 
-global_config:
+globalConfig:
   # optional (default: 2000)
-  tick_time: 2000
+  tickTime: 2000
 
   # optional (default: 10) - ticks for follower to sync to leader
-  init_limit: 10
+  initLimit: 10
 
   # optional (default: 5) - ticks between request and ack
-  sync_limit: 5
+  syncLimit: 5
 
   # optional (default: <path>/data/<name>)
-  data_dir: /var/lib/zk/data
+  dataDir: /var/lib/zk/data
 
-  # optional (default: data_dir)
-  data_log_dir: /var/lib/zk/datalog
+  # optional (default: dataDir)
+  dataLogDir: /var/lib/zk/datalog
 
   # optional - other ZK options (string values only)
   properties:

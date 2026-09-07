@@ -9,7 +9,7 @@ type ZKTopology struct {
 	Name         string     `yaml:"name"`
 	Path         string     `yaml:"path"`
 	Servers      []ZKServer `yaml:"servers"`
-	GlobalConfig ZKConfig   `yaml:"global_config"`
+	GlobalConfig ZKConfig   `yaml:"globalConfig"`
 }
 
 type ZKServer struct {
@@ -19,11 +19,11 @@ type ZKServer struct {
 }
 
 type ZKConfig struct {
-	TickTime   int               `yaml:"tick_time,omitempty"`
-	InitLimit  int               `yaml:"init_limit,omitempty"`
-	SyncLimit  int               `yaml:"sync_limit,omitempty"`
-	DataDir    string            `yaml:"data_dir,omitempty"`
-	DataLogDir string            `yaml:"data_log_dir,omitempty"`
+	TickTime   int               `yaml:"tickTime,omitempty"`
+	InitLimit  int               `yaml:"initLimit,omitempty"`
+	SyncLimit  int               `yaml:"syncLimit,omitempty"`
+	DataDir    string            `yaml:"dataDir,omitempty"`
+	DataLogDir string            `yaml:"dataLogDir,omitempty"`
 	Properties map[string]string `yaml:"properties,omitempty"`
 }
 

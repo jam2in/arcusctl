@@ -61,8 +61,8 @@ ssh -o BatchMode=yes -o ConnectTimeout=10 <host> hostname
 
 - ZooKeeper 서버가 실행되는 원격 장비
     - ZooKeeper 버전과 호환되는 Java 런타임
-    - 토폴로지의 `path`, `data_dir`을 만들고 수정할 수 있는 권한
-    - `data_log_dir`을 별도로 지정했다면 해당 경로를 만들고 수정할 수 있는 권한
+    - 토폴로지의 `path`, `dataDir`을 만들고 수정할 수 있는 권한
+    - `dataLogDir`을 별도로 지정했다면 해당 경로를 만들고 수정할 수 있는 권한
 
 - 캐시 서버가 실행되는 원격 장비
     - 소스 아카이브의 의존성을 설치할 수 있는 환경
@@ -138,8 +138,8 @@ ssh -o BatchMode=yes -o ConnectTimeout=10 <host> hostname
         └── zk<myid>/
 ```
 
-ZooKeeper의 `data_dir`을 생략하면 `<path>/data/<ensemble-name>`을 사용합니다.
-`data_dir` 또는 `data_log_dir`을 직접 지정하면 각 경로 아래에 `zk<myid>` 디렉터리를 생성합니다.
+ZooKeeper의 `dataDir`을 생략하면 `<path>/data/<ensemble-name>`을 사용합니다.
+`dataDir` 또는 `dataLogDir`을 직접 지정하면 각 경로 아래에 `zk<myid>` 디렉터리를 생성합니다.
 
 ## 기본 운영 흐름
 
