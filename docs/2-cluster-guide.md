@@ -362,9 +362,9 @@ arcusctl cluster list
 현재 운영 장비에 저장된 배포 정보를 기준으로 Arcus 클러스터 목록을 다음과 같이 출력합니다.
 
 ```text
-SERVICECODE      VERSION   EDITION     NODES  DEPLOYED_AT
-my-cluster       1.16.1    community   3      2026-08-01 12:30:02
-my-repl-cluster  0.12.1-E  enterprise  4      2026-09-01 01:00:13
+SERVICECODE      VERSION   EDITION     NODES  GROUPS  DEPLOYED_AT
+my-cluster       1.16.1    community   3      -       2026-08-01 12:30:02
+my-repl-cluster  0.12.1-E  enterprise  4      2       2026-09-01 01:00:13
 ```
 
 다음 정보를 표시합니다.
@@ -373,6 +373,7 @@ my-repl-cluster  0.12.1-E  enterprise  4      2026-09-01 01:00:13
 - Arcus 버전
 - Edition
 - 캐시 서버 수
+- replication group 수
 - 배포 시간
 
 `list`는 실행 중인 캐시 서버를 자동으로 탐색하지 않습니다.
