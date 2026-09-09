@@ -152,3 +152,14 @@ func (s *CacheServer) IsMaster() bool {
 func (s *CacheServer) Host() string {
 	return strings.SplitN(s.Address, ":", 2)[0]
 }
+
+func (topo *ClusterTopology) GroupCount() int {
+	names := make(map[string]struct{}, len(topo.Servers))
+	for _, server := range topo.Servers {
+		if server.Group != nil {
+			names[server.Group.Name] = struct{}{}
+		}
+	}
+
+	return len(names)
+}
