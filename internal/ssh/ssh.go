@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 func withOptions(args ...string) []string {
@@ -42,4 +43,25 @@ func FileExists(host string, remotePath string) (bool, error) {
 	}
 
 	return false, err
+}
+
+// Quote returns a shell-escaped version of the input string.
+func Quote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// RunCode executes a command on a remote host and returns the exit code and any error encountered.
+func RunCode(host string, command string) (int, error) {
+	cmd := exec.Command("ssh", withOptions(host, command)...)
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return exitErr.ExitCode(), nil
+		}
+		return 0, err
+	}
+
+	return 0, nil
 }

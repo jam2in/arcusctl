@@ -1,6 +1,7 @@
 package zk
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -11,7 +12,11 @@ import (
 	"github.com/jam2in/arcusctl/internal/topology"
 )
 
-const removeCommandTemplate = "rm -rf %s"
+const (
+	removeCommandTemplate = "rm -rf %s"
+	exitStillRunning      = 9
+	exitSSHConnFailed     = 255
+)
 
 func Delete(ensembleName string, purge bool) error {
 	meta, topo, err := loadEnsemble(ensembleName)
@@ -19,11 +24,7 @@ func Delete(ensembleName string, purge bool) error {
 		return err
 	}
 
-	if err := verifyTopology(topo.Servers, topo.Path, topo.Name); err != nil {
-		return err
-	}
-
-	if err := verifyAllStopped(topo.Servers, topo.Path, topo.Name); err != nil {
+	if err := verifyNotResponding(topo); err != nil {
 		return err
 	}
 
@@ -37,7 +38,7 @@ func Delete(ensembleName string, purge bool) error {
 	for host, servers := range hostsMap {
 		fmt.Printf("Removing files on %s...\n", host)
 		if err := removeHostFiles(host, servers, topo.Path, topo.Name); err != nil {
-			return fmt.Errorf("remove files on %s: %w", host, err)
+			return err
 		}
 	}
 
@@ -57,34 +58,40 @@ func Delete(ensembleName string, purge bool) error {
 	return nil
 }
 
-func verifyTopology(
-	servers []topology.ZKServer,
-	topoPath string,
-	ensembleName string,
-) error {
-	for _, server := range servers {
-		confDir := zkConfigDir(topoPath, ensembleName, server.MyID)
+func verifyNotResponding(topo *topology.ZKTopology) error {
+	targets := topologyTargets(topo.Servers)
+	results := probeAll(targets)
 
-		if err := ssh.Run(server.Host(), fmt.Sprintf("test -d %s", confDir)); err != nil {
-			return fmt.Errorf("topology mismatch: %s not found on %s", confDir, server.Host())
+	var responding []string
+	for _, server := range topo.Servers {
+		result, ok := results[server.MyID]
+		if !ok {
+			continue
+		}
+
+		if errors.Is(result.Err, errMntrNotWhitelisted) {
+			return fmt.Errorf(
+				"ZooKeeper at %s (myid=%d) responded but mntr is not whitelisted. "+
+					"stop the ensemble first: arcusctl zk stop %s",
+				targets[server.MyID], server.MyID, topo.Name,
+			)
+		}
+
+		if result.Err == nil {
+			responding = append(
+				responding,
+				fmt.Sprintf("myid=%d (%s)", server.MyID, targets[server.MyID]),
+			)
 		}
 	}
-	return nil
-}
 
-func verifyAllStopped(
-	servers []topology.ZKServer,
-	topoPath string,
-	ensembleName string,
-) error {
-	for _, server := range servers {
-		confDir := zkConfigDir(topoPath, ensembleName, server.MyID)
-		cmd := fmt.Sprintf("pgrep -f '[Q]uorumPeerMain.*%s' > /dev/null 2>&1", confDir)
-		if err := ssh.Run(server.Host(), cmd); err == nil {
-			return fmt.Errorf("server %s (myid=%d) is still running. stop the ensemble before delete",
-				server.Host(), server.MyID)
-		}
+	if len(responding) > 0 {
+		return fmt.Errorf(
+			"ZooKeeper is still responding %s.\nstop the ensemble first: arcusctl zk stop %s",
+			strings.Join(responding, ", "), topo.Name,
+		)
 	}
+
 	return nil
 }
 
@@ -102,18 +109,46 @@ func removeHostFiles(
 	topoPath string,
 	ensembleName string,
 ) error {
-	var removePaths []string
+	var confDirs, removePaths []string
 
 	for _, server := range servers {
-		// Remove conf/<ensembleName>/zk<myid>.cfg and data/log directories
-		removePaths = append(
-			removePaths,
-			zkConfigDir(topoPath, ensembleName, server.MyID),
-		)
-		removePaths = append(removePaths, nodeDataPaths(server)...)
+		confDir := zkConfigDir(topoPath, ensembleName, server.MyID)
+		confDirs = append(confDirs, ssh.Quote(confDir))
+
+		removePaths = append(removePaths, ssh.Quote(confDir))
+		for _, dataPath := range nodeDataPaths(server) {
+			removePaths = append(removePaths, ssh.Quote(dataPath))
+		}
 	}
 
-	return ssh.Run(host, "rm -rf "+strings.Join(removePaths, " "))
+	cmd := fmt.Sprintf(
+		`for d in %s; do pgrep -f "[Q]uorumPeerMain.*$d" > /dev/null 2>&1 && exit %d; done; rm -rf %s`,
+		strings.Join(confDirs, " "),
+		exitStillRunning,
+		strings.Join(removePaths, " "),
+	)
+
+	code, err := ssh.RunCode(host, cmd)
+	if err != nil {
+		return fmt.Errorf("run ssh for %s: %w", host, err)
+	}
+
+	switch code {
+	case 0:
+		return nil
+	case exitStillRunning:
+		return fmt.Errorf(
+			"ZooKeeper is still running on %s. stop the ensemble first: arcusctl zk stop %s",
+			host, ensembleName,
+		)
+	case exitSSHConnFailed:
+		return fmt.Errorf(
+			"cannot connect to %s over ssh. check the host is reachable and your ssh key is authorized",
+			host,
+		)
+	default:
+		return fmt.Errorf("remove files on %s: exit code %d", host, code)
+	}
 }
 
 func removeInstallationDirs(
@@ -138,7 +173,8 @@ func removeInstallationDirs(
 		}
 
 		fmt.Printf("Removing installation directory on %s...\n", host)
-		if err := ssh.Run(host, fmt.Sprintf(removeCommandTemplate, installPath)); err != nil {
+		cmd := fmt.Sprintf(removeCommandTemplate, ssh.Quote(installPath))
+		if err := ssh.Run(host, cmd); err != nil {
 			return fmt.Errorf("remove installation on %s: %w", host, err)
 		}
 	}

@@ -26,8 +26,10 @@ var versionCmd = &cobra.Command{
 }
 
 var rootCmd = &cobra.Command{
-	Use:  "arcusctl",
-	Long: `arcusctl is a CLI tool for managing and operating ARCUS cache clusters.`,
+	Use:           "arcusctl",
+	Long:          `arcusctl is a CLI tool for managing and operating ARCUS cache clusters.`,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 func init() {
@@ -45,7 +47,7 @@ func init() {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
 }
