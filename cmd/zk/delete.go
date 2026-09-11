@@ -9,11 +9,12 @@ var deleteCmd = &cobra.Command{
 	Use:   "delete <ensemble-name>",
 	Short: "Delete a ZooKeeper ensemble",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		purge, _ := cmd.Flags().GetBool("purge")
 		if err := zk.Delete(args[0], purge); err != nil {
-			panic(err)
+			return err
 		}
+		return nil
 	},
 }
 
