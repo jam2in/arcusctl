@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 func withOptions(args ...string) []string {
@@ -42,4 +43,22 @@ func FileExists(host string, remotePath string) (bool, error) {
 	}
 
 	return false, err
+}
+
+// Quote wraps a value in shell quotes so spaces and special characters
+// are treated literally as part of a single argument.
+func Quote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// RunOutput executes a command on a remote host via SSH and returns its output as a string.
+func RunOutput(host string, command string) (string, error) {
+	cmd := exec.Command("ssh", withOptions(host, command)...)
+	cmd.Stderr = os.Stderr
+
+	output, err := cmd.Output()
+	if err != nil {
+		return string(output), fmt.Errorf("execute command on %s: %w", host, err)
+	}
+	return string(output), nil
 }

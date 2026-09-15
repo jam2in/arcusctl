@@ -1,7 +1,9 @@
 package zk
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
 	"path"
 	"strings"
 
@@ -11,7 +13,10 @@ import (
 	"github.com/jam2in/arcusctl/internal/topology"
 )
 
-const removeCommandTemplate = "rm -rf %s"
+const (
+	removeCommandTemplate = "rm -rf %s"
+	exitNCFailed          = 1
+)
 
 func Delete(ensembleName string, purge bool) error {
 	meta, topo, err := loadEnsemble(ensembleName)
@@ -19,11 +24,7 @@ func Delete(ensembleName string, purge bool) error {
 		return err
 	}
 
-	if err := verifyTopology(topo.Servers, topo.Path, topo.Name); err != nil {
-		return err
-	}
-
-	if err := verifyAllStopped(topo.Servers, topo.Path, topo.Name); err != nil {
+	if err := verifyAllStopped(topo); err != nil {
 		return err
 	}
 
@@ -37,7 +38,7 @@ func Delete(ensembleName string, purge bool) error {
 	for host, servers := range hostsMap {
 		fmt.Printf("Removing files on %s...\n", host)
 		if err := removeHostFiles(host, servers, topo.Path, topo.Name); err != nil {
-			return fmt.Errorf("remove files on %s: %w", host, err)
+			return err
 		}
 	}
 
@@ -57,34 +58,42 @@ func Delete(ensembleName string, purge bool) error {
 	return nil
 }
 
-func verifyTopology(
-	servers []topology.ZKServer,
-	topoPath string,
-	ensembleName string,
-) error {
-	for _, server := range servers {
-		confDir := zkConfigDir(topoPath, ensembleName, server.MyID)
+func verifyAllStopped(topo *topology.ZKTopology) error {
+	for _, server := range topo.Servers {
+		output, err := runRuok(server)
 
-		if err := ssh.Run(server.Host(), fmt.Sprintf("test -d %s", confDir)); err != nil {
-			return fmt.Errorf("topology mismatch: %s not found on %s", confDir, server.Host())
+		// If the command succeeded, it means the ZooKeeper is still running and accepting connections.
+		if err == nil {
+			return fmt.Errorf(
+				"ZooKeeper myid=%d on %s is accepting connections;\n"+
+					"stop the ensemble first: arcusctl zk stop %s",
+				server.MyID, server.Host(), topo.Name,
+			)
 		}
-	}
-	return nil
-}
 
-func verifyAllStopped(
-	servers []topology.ZKServer,
-	topoPath string,
-	ensembleName string,
-) error {
-	for _, server := range servers {
-		confDir := zkConfigDir(topoPath, ensembleName, server.MyID)
-		cmd := fmt.Sprintf("pgrep -f '[Q]uorumPeerMain.*%s' > /dev/null 2>&1", confDir)
-		if err := ssh.Run(server.Host(), cmd); err == nil {
-			return fmt.Errorf("server %s (myid=%d) is still running. stop the ensemble before delete",
-				server.Host(), server.MyID)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) &&
+			exitErr.ExitCode() == exitNCFailed &&
+			strings.Contains(output, "Connection refused") {
+			continue
 		}
+
+		detail := strings.TrimSpace(output)
+		if detail != "" {
+			return fmt.Errorf(
+				"cannot check ZooKeeper myid=%d on %s: %s;\n"+
+					"check SSH access, nc availability, and network connectivity: %w",
+				server.MyID, server.Host(), detail, err,
+			)
+		}
+
+		return fmt.Errorf(
+			"cannot check ZooKeeper myid=%d on %s;\n"+
+				"check SSH access and network connectivity: %w",
+			server.MyID, server.Host(), err,
+		)
 	}
+
 	return nil
 }
 
@@ -104,16 +113,26 @@ func removeHostFiles(
 ) error {
 	var removePaths []string
 
+	// Remove configuration and data directories for each server on the host.
 	for _, server := range servers {
-		// Remove conf/<ensembleName>/zk<myid>.cfg and data/log directories
-		removePaths = append(
-			removePaths,
-			zkConfigDir(topoPath, ensembleName, server.MyID),
-		)
-		removePaths = append(removePaths, nodeDataPaths(server)...)
+		confDir := zkConfigDir(topoPath, ensembleName, server.MyID)
+		removePaths = append(removePaths, ssh.Quote(confDir))
+
+		for _, dataPath := range nodeDataPaths(server) {
+			removePaths = append(removePaths, ssh.Quote(dataPath))
+		}
 	}
 
-	return ssh.Run(host, "rm -rf "+strings.Join(removePaths, " "))
+	cmd := fmt.Sprintf(
+		removeCommandTemplate,
+		strings.Join(removePaths, " "),
+	)
+
+	if err := ssh.Run(host, cmd); err != nil {
+		return fmt.Errorf("remove files on %s: %w", host, err)
+	}
+
+	return nil
 }
 
 func removeInstallationDirs(
@@ -138,7 +157,8 @@ func removeInstallationDirs(
 		}
 
 		fmt.Printf("Removing installation directory on %s...\n", host)
-		if err := ssh.Run(host, fmt.Sprintf(removeCommandTemplate, installPath)); err != nil {
+		cmd := fmt.Sprintf(removeCommandTemplate, ssh.Quote(installPath))
+		if err := ssh.Run(host, cmd); err != nil {
 			return fmt.Errorf("remove installation on %s: %w", host, err)
 		}
 	}
