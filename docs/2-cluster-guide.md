@@ -26,6 +26,7 @@ ZooKeeper 준비 -> 토폴로지 작성 -> deploy -> start -> status / list -> s
 | `arcusctl cluster status <servicecode>`            | 클러스터 내 캐시 서버 실행 및 ZooKeeper 등록 상태 출력   |
 | `arcusctl cluster list`                            | 관리 중인 클러스터 목록 출력                             |
 | `arcusctl cluster stop <servicecode> [options]`    | 클러스터 내 캐시 서버 중지                               |
+| `arcusctl cluster upgrade <servicecode> <options>` | 지정한 캐시 서버를 목표 버전으로 순차 업그레이드 (구현 예정) |
 | `arcusctl cluster delete <servicecode> [--purge]`  | 클러스터 등록 정보 삭제 및 선택적으로 설치 디렉터리 삭제 |
 
 ## 토폴로지 작성
@@ -415,6 +416,207 @@ Enterprise 클러스터에서는 `--node`를 사용할 수 없습니다.
 Enterprise 클러스터는 `slave`를 먼저 중지한 뒤 `master`를 중지합니다.
 
 실행 중 오류가 발생하면 일부 캐시 서버가 계속 실행 중일 수 있습니다. `status`로 전체 상태를 확인한 후 다시 중지하세요.
+
+## `cluster upgrade`
+
+> [!NOTE]
+> 구현 전 인터페이스 초안입니다. 세부 동작과 출력 형식은 구현 과정에서 바뀔 수 있습니다.
+
+지정한 캐시 서버 또는 replication group을 목표 버전으로 순차 업그레이드합니다.
+
+### 명령 형식
+
+```sh
+arcusctl cluster upgrade <servicecode> --version <version> <target>
+```
+
+```text
+<target>: --node <host>:<port>[,...] | --group <group-name>[,...] | --all
+```
+
+- `--version`은 필수이며, 적용할 버전을 지정합니다.
+- `<target>`은 필수이며, `--node`, `--group`, `--all` 중 정확히 하나를 지정해야 합니다. 실수로 클러스터 전체를 일괄 업그레이드하는 것을 막기 위해 대상을 생략할 수 없습니다.
+- `--node`, `--group`, `--all`은 함께 사용할 수 없습니다. 여러 대상을 선택할 때는 comma로 구분합니다.
+- `--all`은 클러스터의 모든 캐시 서버를 대상으로 하되, 이미 목표 버전으로 정상 동작하는 대상은 건너뛰고 남은 대상만 업그레이드합니다. 일부 대상을 먼저 업그레이드한 뒤 나머지를 마무리할 때 사용합니다.
+- 단계별 관찰과 다음 단계 진행은 운영자가 수행합니다. 명령은 선택한 대상의 업그레이드가 완료되면 종료합니다.
+
+### 실행 예시
+
+#### Community
+
+```sh
+arcusctl cluster upgrade my-cluster --version 1.16.2 --node 192.0.2.21:11211
+arcusctl cluster upgrade my-cluster --version 1.16.2 --node 192.0.2.21:11211,192.0.2.22:11211
+arcusctl cluster upgrade my-cluster --version 1.16.2 --all
+```
+
+- `--node`로 업그레이드할 캐시 서버를 지정합니다. 여러 캐시 서버를 지정하면 나열한 순서대로 업그레이드합니다.
+- `--group`은 사용할 수 없습니다.
+
+각 캐시 서버는 다음 순서로 업그레이드합니다.
+
+```text
+캐시 서버 stop -> 목표 버전으로 start -> 실행 버전 및 클러스터 편입 확인
+```
+
+정상 동작과 캐시 재적재에 따른 부하 안정화를 확인한 뒤 다음 캐시 서버로 진행하세요.
+
+#### Enterprise
+
+```sh
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --group g1
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --group g1,g2
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --all
+```
+
+- `--group`으로 업그레이드할 replication group을 지정합니다. 여러 group을 지정하면 나열한 순서대로 업그레이드합니다.
+- `--node`는 사용할 수 없습니다.
+
+각 replication group은 다음 순서로 업그레이드합니다.
+
+1. 현재 `master`·`slave` 역할과 복제 상태를 확인합니다.
+2. 현재 `slave`를 중지합니다.
+3. 목표 버전으로 `slave`를 시작하고 동기화 완료를 확인합니다.
+4. 새 버전 `slave`를 `master`로 switchover하고 역할과 복제 상태를 확인합니다.
+5. `slave`가 된 기존 `master`에도 2~4번 작업을 반복합니다.
+6. Group 내 모든 캐시 서버가 목표 버전으로 정상 동작하는지 확인한 뒤 다음 group으로 진행합니다.
+
+### Plan 출력
+
+업그레이드를 시작하기 전에 대상별 현재 버전, 목표 버전, 수행할 동작을 출력하고 진행 여부를 확인합니다.
+이미 목표 버전으로 정상 동작하는 대상은 `skip`으로 표시하므로, 실제로 업그레이드될 범위를 확인한 뒤 진행할 수 있습니다.
+
+#### Community
+
+```sh
+arcusctl cluster upgrade my-cluster --version 1.16.2 --all
+```
+
+```text
+Arcus cluster "my-cluster" will be upgraded (edition: community, version: 1.16.1 -> 1.16.2)
+
+ADDRESS           CURRENT  TARGET  ACTION
+192.0.2.21:11211  1.16.2   1.16.2  skip
+192.0.2.22:11211  1.16.1   1.16.2  upgrade
+192.0.2.23:11211  1.16.1   1.16.2  upgrade
+
+Proceed with upgrade? (y/N):
+```
+
+#### Enterprise
+
+```sh
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --all
+```
+
+Enterprise 클러스터는 replication group 단위로 동작을 표시합니다. 일부 캐시 서버만 목표 버전인 group은 `upgrade`로 표시합니다.
+
+```text
+Arcus cluster "my-repl-cluster" will be upgraded (edition: enterprise, version: 0.12.1-E -> 0.12.2-E)
+
+GROUP  ROLE    ADDRESS           CURRENT   TARGET    ACTION
+g1     master  192.0.2.22:11211  0.12.2-E  0.12.2-E  skip
+g1     slave   192.0.2.21:11211  0.12.2-E  0.12.2-E  skip
+g2     master  192.0.2.23:11211  0.12.1-E  0.12.2-E  upgrade
+g2     slave   192.0.2.24:11211  0.12.1-E  0.12.2-E  upgrade
+
+Proceed with upgrade? (y/N):
+```
+
+### 바이너리 준비 시점
+
+목표 버전 바이너리는 **캐시 서버를 하나도 중지하기 전에**, 이번 실행의 모든 대상 원격 장비에 한꺼번에 준비합니다.
+
+```text
+plan 출력 및 확인 -> 대상 원격 장비 전체에 목표 버전 설치 -> 대상별 순차 업그레이드
+```
+
+- 설치는 `deploy`와 같은 방식으로 원격 장비마다 한 번만 수행하고, `<path>/<version>/bin/memcached`가 이미 있으면 재사용합니다.
+- 소스 빌드는 수 분이 걸릴 수 있습니다. 캐시 서버별로 중지 직전에 빌드하면 업그레이드 시간이 길어지고, 중간 장비에서 빌드가 실패하면 버전이 섞인 채로 중단됩니다. 미리 준비하면 빌드 실패는 서비스에 영향을 주기 전에 드러납니다.
+- 설치가 하나라도 실패하면 캐시 서버를 건드리지 않고 종료합니다.
+- 기존 버전 설치는 삭제하지 않습니다. 이전 버전으로 되돌릴 때 같은 명령에 이전 버전을 지정해 사용합니다.
+
+### 공통 동작
+
+- 버전별 설치 경로(`<path>/<version>`)를 사용하고, 캐시 서버별 실행 버전을 관리합니다.
+- 이미 목표 버전으로 정상 동작하는 캐시 서버 또는 replication group은 건너뜁니다. 일부 캐시 서버만 목표 버전인 replication group은 미완료 대상으로 처리합니다.
+- 각 단계의 결과와 캐시 서버별 버전을 운영 장비의 메타데이터에 기록합니다.
+- 동일한 명령을 다시 실행하면 작업 기록과 실제 버전·역할·복제 상태를 확인하여 미완료 작업을 이어서 수행합니다.
+
+### 업그레이드 실패 시 확인
+
+> [!WARNING]
+> 업그레이드 중 오류가 발생해도 완료된 작업은 자동으로 롤백되지 않습니다.
+
+시작, 클러스터 편입, 동기화, switchover 확인 중 하나라도 실패하면 추가 작업을 중단하고 완료·실패·미처리 대상을 출력합니다.
+원인을 해결한 뒤 같은 명령을 다시 실행하면 미완료 작업부터 이어서 수행합니다.
+
+### 기존 명령과의 연계
+
+`upgrade`를 지원하면서 클러스터 안에 여러 버전이 함께 존재할 수 있습니다. 이에 맞춰 기존 명령의 버전 처리도 다음과 같이 바뀝니다.
+
+| 명령        | 변경 내용                                                                                  |
+|-------------|--------------------------------------------------------------------------------------------|
+| `deploy`    | 배포 버전을 명령 인자 대신 토폴로지의 `globalConfig.version`으로 지정합니다. 아래 [배포 버전 지정 방식 변경 (예정)](#배포-버전-지정-방식-변경-예정)을 참고하세요. |
+| `start`     | 캐시 서버별로 기록된 버전으로 시작합니다.                                                  |
+| `stop`      | 캐시 서버별로 기록된 버전의 pid 파일(`<path>/<version>/memcached-<port>.pid`)로 중지합니다. |
+| `delete`    | 실행 여부 확인과 `--purge` 대상 경로를 캐시 서버별 버전 기준으로 판단합니다.               |
+| `list`      | 버전 혼용 여부와 버전별 캐시 서버 수를 표시합니다.                                         |
+| `status`    | 기존 출력에 캐시 서버별 실행 버전과 업그레이드 진행·실패 단계를 추가합니다.                |
+
+#### 배포 버전 지정 방식 변경 (예정)
+
+> [!NOTE]
+> `cluster upgrade` 도입과 함께 변경될 예정인 형식입니다. 현재는 `arcusctl cluster deploy <version> <topology.yml>` 형식으로 버전을 명령 인자로 지정하며, 토폴로지에 `globalConfig.version` 필드는 없습니다.
+
+변경 후 `deploy`는 버전을 명령 인자 대신 토폴로지의 `globalConfig.version`으로 받습니다.
+
+```sh
+arcusctl cluster deploy <topology.yml>
+```
+
+```yaml
+globalConfig:
+  version: 1.16.1
+  options: "-t 4 -c 1024 -b 1024 -B auto -m 64"
+```
+
+| 필드                   | 설명              | 필수 |
+|------------------------|-------------------|------|
+| `globalConfig.version` | 배포할 Arcus 버전 | 예   |
+
+`globalConfig.version`은 **최초 배포 버전**으로만 사용합니다. 배포 이후 캐시 서버별 버전과 클러스터 기본 버전은 운영 장비의 `meta.yml`이 관리하며, 저장된 `topology.yml`은 배포 당시 원본 그대로 유지합니다.
+
+#### `status` 출력
+
+`status`는 캐시 서버별 버전을 `VERSION` 열에 표시합니다. 첫 줄의 `version`은 클러스터 기본 버전입니다.
+
+```text
+Arcus cluster "my-repl-cluster" (edition: enterprise, version: 0.12.1-E)
+
+GROUP  ROLE    ADDRESS           VERSION   PROCESS_STATUS  ZK_REGISTERED
+g1     master  192.0.2.22:11211  0.12.2-E  running         yes
+g1     slave   192.0.2.21:11211  0.12.2-E  running         yes
+g2     master  192.0.2.23:11211  0.12.1-E  running         yes
+g2     slave   192.0.2.24:11211  0.12.1-E  running         yes
+
+Upgrade in progress: 0.12.1-E -> 0.12.2-E (1/2 groups done)
+```
+
+- 실행 중인 캐시 서버는 프로세스에 `version` 명령을 보내 실제 실행 버전을 표시합니다.
+- 중지된 캐시 서버는 메타데이터에 기록된 버전, 즉 다음 `start` 시 사용할 버전을 표시합니다.
+- 실제 실행 버전과 기록된 버전이 다르면 경고를 함께 출력합니다.
+- 업그레이드가 진행 중이거나 실패한 경우 표 아래에 진행 상황과 실패 단계를 출력합니다.
+
+클러스터 기본 버전은 다음과 같이 관리합니다.
+
+- 최초 배포 버전으로 시작합니다. 배포 버전 지정 방식이 변경되면 토폴로지의 `globalConfig.version`이 됩니다.
+- 부분 업그레이드 중에는 유지합니다.
+- 전체 캐시 서버의 업그레이드가 완료되면 목표 버전으로 갱신합니다.
+- 기본 버전과 캐시 서버별 버전은 `meta.yml`에 기록합니다. 저장된 `topology.yml`의 `globalConfig.version`은 갱신하지 않습니다.
+
+> [!TIP]
+> 배포 버전 지정 방식이 변경된 뒤에는, 업그레이드 후 같은 토폴로지 파일로 다른 클러스터를 배포하려면 파일의 `globalConfig.version`을 직접 수정하세요.
 
 ## `cluster delete`
 
