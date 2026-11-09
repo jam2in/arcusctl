@@ -1,13 +1,21 @@
 package cluster
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/jam2in/arcusctl/internal/topology"
 )
+
+type cacheProbe struct {
+	Version string
+	Err     error
+}
 
 func memcachedInstallPath(basePath string, version string) string {
 	return path.Join(basePath, version)
@@ -129,4 +137,64 @@ func distinctHosts(
 	}
 
 	return hosts
+}
+
+func probeCacheServers(
+	servers []topology.CacheServer,
+) []cacheProbe {
+	results := make([]cacheProbe, len(servers))
+
+	var wg sync.WaitGroup
+
+	for i, server := range servers {
+		wg.Go(func() {
+			results[i].Version, results[i].Err =
+				probeCacheVersion(server)
+		})
+	}
+
+	wg.Wait()
+
+	return results
+}
+
+func probeCacheVersion(
+	server topology.CacheServer,
+) (string, error) {
+	output, err := runVersion(server)
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 255 {
+			return "", errors.New("SSH connection failed")
+		}
+		if msg := strings.TrimSpace(output); msg != "" {
+			return "", errors.New(msg)
+		}
+		return "", errors.New("cannot connect to the cache port")
+	}
+
+	version, err := parseCacheVersion(output)
+	if err != nil {
+		return "", fmt.Errorf(
+			"read version from %s via SSH: %w",
+			server.Address,
+			err,
+		)
+	}
+
+	return version, nil
+}
+
+func parseCacheVersion(line string) (string, error) {
+	line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
+
+	version, ok := strings.CutPrefix(line, "VERSION ")
+	if !ok || version == "" || strings.ContainsAny(version, " \t\r\n") {
+		return "", fmt.Errorf(
+			"invalid version response %q; check the cache server protocol",
+			line,
+		)
+	}
+
+	return version, nil
 }
