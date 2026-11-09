@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -9,6 +10,17 @@ import (
 	"github.com/jam2in/arcusctl/internal"
 	"github.com/jam2in/arcusctl/internal/topology"
 )
+
+type cacheNode struct {
+	Address string
+	Group   string
+	Role    string
+}
+
+type cacheList struct {
+	Nodes   map[string]cacheNode
+	Missing bool
+}
 
 func clusterExistsInZK(zkAddress string, serviceCode string, edition topology.ClusterEdition) (bool, error) {
 	conn, err := internal.ConnectZooKeeper(zkAddress)
@@ -134,51 +146,117 @@ func mappingNodeName(
 		topo.ServiceCode, server.Group.Name, server.Host(), server.Group.Port)
 }
 
-func registeredAddresses(
+func readCacheList(
 	topo *topology.ClusterTopology,
 	edition topology.ClusterEdition,
-) (map[string]bool, error) {
+) (cacheList, error) {
+
 	conn, err := internal.ConnectZooKeeper(topo.ZooKeeper)
 	if err != nil {
-		return nil, err
+		return cacheList{}, fmt.Errorf(
+			"connect to ZooKeeper %s; check ensemble connectivity: %w",
+			topo.ZooKeeper,
+			err,
+		)
 	}
 	defer conn.Close()
 
-	root := rootForEdition(edition)
-
-	registered := map[string]bool{}
-	for _, server := range topo.Servers {
-		zpath := path.Join(root, internal.ZPATH_CACHE_SERVER_MAPPING, server.Address)
-
-		children, _, err := conn.Children(zpath)
-		if err == zk.ErrNoNode {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		for _, child := range children {
-			if mappingBelongsTo(child, topo.ServiceCode, edition) {
-				registered[server.Address] = true
-				break
-			}
-		}
+	list, err := readCacheNodes(conn, topo.ServiceCode, edition)
+	if err != nil {
+		return cacheList{}, fmt.Errorf(
+			"read cache_list for %q from ZooKeeper %s; "+
+				"check connectivity, permissions and registration: %w",
+			topo.ServiceCode,
+			topo.ZooKeeper,
+			err,
+		)
 	}
 
-	return registered, nil
+	return list, nil
 }
 
-func mappingBelongsTo(
-	leaf string,
+func readCacheNodes(
+	conn *zk.Conn,
 	serviceCode string,
 	edition topology.ClusterEdition,
-) bool {
-	if edition == topology.CommunityEdition {
-		return leaf == serviceCode
+) (cacheList, error) {
+	result := cacheList{
+		Nodes: make(map[string]cacheNode),
 	}
 
-	// enterprise format: <service_code>^<group_name>^<host>:<port>
-	prefix, _, found := strings.Cut(leaf, "^")
-	return found && prefix == serviceCode
+	root := rootForEdition(edition)
+	zpath := path.Join(
+		root,
+		internal.ZPATH_CACHE_LIST,
+		serviceCode,
+	)
+
+	children, _, err := conn.Children(zpath)
+	if errors.Is(err, zk.ErrNoNode) {
+		result.Missing = true
+		return result, nil
+	}
+	if err != nil {
+		return result, fmt.Errorf("read children of %s: %w", zpath, err)
+	}
+
+	for _, child := range children {
+		node, err := parseCacheNode(child, edition)
+		if err != nil {
+			return result, err
+		}
+
+		result.Nodes[node.Address] = node
+	}
+
+	return result, nil
+}
+
+func parseCacheNode(
+	name string,
+	edition topology.ClusterEdition,
+) (cacheNode, error) {
+	node := cacheNode{}
+	address := name
+
+	if edition == topology.EnterpriseEdition {
+		parts := strings.Split(name, "^")
+		if len(parts) != 3 || parts[0] == "" {
+			return node, fmt.Errorf(
+				"invalid cache_list node %q; check its naming format",
+				name,
+			)
+		}
+
+		node.Group = parts[0]
+
+		switch parts[1] {
+		case "M":
+			node.Role = "master"
+		case "S":
+			node.Role = "slave"
+		default:
+			return node, fmt.Errorf(
+				"invalid role in cache_list node %q; expected M or S",
+				name,
+			)
+		}
+
+		address = parts[2]
+	}
+
+	colon := strings.LastIndex(address, ":")
+	if colon < 0 {
+		return node, fmt.Errorf(
+			"invalid address in cache_list node %q; expected host:port",
+			name,
+		)
+	}
+
+	port, _, _ := strings.Cut(address[colon+1:], "-")
+	address = address[:colon+1] + port
+
+	node.Address = address
+
+	return node, nil
 }
