@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/go-zookeeper/zk"
@@ -259,4 +260,60 @@ func parseCacheNode(
 	node.Address = address
 
 	return node, nil
+}
+
+func readRegisteredServices(
+	zkAddress string,
+) ([]registeredService, error) {
+	conn, err := internal.ConnectZooKeeper(zkAddress)
+	if err != nil {
+		return nil, fmt.Errorf("connect to ZooKeeper %s: %w", zkAddress, err)
+	}
+	defer conn.Close()
+
+	var services []registeredService
+
+	editions := []topology.ClusterEdition{
+		topology.CommunityEdition,
+		topology.EnterpriseEdition,
+	}
+
+	for _, edition := range editions {
+		base := path.Join(rootForEdition(edition), internal.ZPATH_CACHE_LIST)
+
+		serviceCodes, _, err := conn.Children(base)
+		if errors.Is(err, zk.ErrNoNode) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf(
+				"read children of %s from ZooKeeper %s: %w",
+				base, zkAddress, err,
+			)
+		}
+		sort.Strings(serviceCodes)
+
+		for _, serviceCode := range serviceCodes {
+			zpath := path.Join(base, serviceCode)
+
+			nodes, _, err := conn.Children(zpath)
+			if errors.Is(err, zk.ErrNoNode) {
+				continue
+			}
+			if err != nil {
+				return nil, fmt.Errorf(
+					"read children of %s from ZooKeeper %s: %w",
+					zpath, zkAddress, err,
+				)
+			}
+
+			services = append(services, registeredService{
+				ServiceCode: serviceCode,
+				Edition:     edition,
+				Joined:      len(nodes),
+			})
+		}
+	}
+
+	return services, nil
 }
