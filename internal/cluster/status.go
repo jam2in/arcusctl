@@ -1,11 +1,12 @@
 package cluster
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"text/tabwriter"
 
-	"github.com/jam2in/arcusctl/internal/ssh"
 	"github.com/jam2in/arcusctl/internal/topology"
 )
 
@@ -15,58 +16,93 @@ func Status(serviceCode string) error {
 		return err
 	}
 
-	registered, err := registeredAddresses(topo, edition)
-	if err != nil {
-		return fmt.Errorf("read cache_server_mapping from ZooKeeper: %w", err)
-	}
+	list, cacheListErr := readCacheList(topo, edition)
+	probes := probeCacheServers(topo.Servers)
 
-	fmt.Printf(
-		"Arcus cluster %q (edition: %s, version: %s)\n\n",
-		meta.ServiceCode, edition, meta.Version,
+	clusterStatus := checkCluster(
+		topo,
+		list,
+		cacheListErr,
+		probes,
 	)
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	return errors.Join(
+		cacheListErr,
+		printClusterStatus(os.Stdout, meta.ServiceCode, edition, clusterStatus),
+	)
+}
+
+func printClusterStatus(
+	out io.Writer,
+	serviceCode string,
+	edition topology.ClusterEdition,
+	status clusterStatus,
+) error {
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+
+	fmt.Fprintf(
+		w,
+		"Arcus cluster %q (edition: %s)\n",
+		serviceCode,
+		edition,
+	)
+
+	if status.CacheListFound {
+		fmt.Fprintf(
+			w,
+			"Nodes: %d/%d healthy\n\n",
+			status.Healthy,
+			len(status.Nodes),
+		)
+	} else {
+		fmt.Fprintf(
+			w,
+			"Nodes: unknown/%d healthy\n\n",
+			len(status.Nodes),
+		)
+	}
 
 	if edition == topology.EnterpriseEdition {
-		fmt.Fprintln(w, "GROUP\tROLE\tADDRESS\tPROCESS_STATUS\tZK_REGISTERED")
-		for _, s := range topo.Servers {
-			fmt.Fprintf(
-				w, "%s\t%s\t%s\t%s\t%s\n",
-				s.Group.Name, s.Group.Role, s.Address,
-				processStatus(s, topo.Path, meta.Version),
-				yesNo(registered[s.Address]),
-			)
+		fmt.Fprint(w, "GROUP\tROLE\t")
+	}
+	fmt.Fprintln(w, "ADDRESS\tVERSION\tZK")
+
+	for _, node := range status.Nodes {
+		if edition == topology.EnterpriseEdition {
+			fmt.Fprintf(w, "%s\t%s\t", node.Group, node.Role)
 		}
-	} else {
-		fmt.Fprintln(w, "ADDRESS\tPROCESS_STATUS\tZK_REGISTERED")
-		for _, s := range topo.Servers {
-			fmt.Fprintf(
-				w, "%s\t%s\t%s\n",
-				s.Address, processStatus(s, topo.Path, meta.Version),
-				yesNo(registered[s.Address]),
-			)
+
+		fmt.Fprintf(
+			w,
+			"%s\t%s\t%s\n",
+			node.Address,
+			node.Version,
+			node.ZK,
+		)
+	}
+
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	if len(status.ClusterWarnings) == 0 && len(status.NodeWarnings) == 0 {
+		return nil
+	}
+
+	fmt.Fprintln(out, "\nWarnings:")
+
+	// cluster-wide warnings
+	for _, warning := range status.ClusterWarnings {
+		fmt.Fprintf(out, "  - %s\n", warning)
+	}
+
+	// warnings grouped by server address
+	for _, warning := range status.NodeWarnings {
+		fmt.Fprintf(out, "  %s:\n", warning.Address)
+		for _, message := range warning.Messages {
+			fmt.Fprintf(out, "    - %s\n", message)
 		}
 	}
 
-	return w.Flush()
-}
-
-func processStatus(
-	server topology.CacheServer,
-	topoPath string,
-	version string,
-) string {
-	pidFile := pidFilePath(server.Address, topoPath, version)
-	cmd := processRunningCommand(pidFile)
-	if err := ssh.Run(server.Host(), cmd); err == nil {
-		return "running"
-	}
-	return "stopped"
-}
-
-func yesNo(b bool) string {
-	if b {
-		return "yes"
-	}
-	return "no"
+	return nil
 }
