@@ -416,6 +416,183 @@ Enterprise 클러스터는 `slave`를 먼저 중지한 뒤 `master`를 중지합
 
 실행 중 오류가 발생하면 일부 캐시 서버가 계속 실행 중일 수 있습니다. `status`로 전체 상태를 확인한 후 다시 중지하세요.
 
+## `cluster upgrade`
+
+> [!NOTE]
+> 구현 전 인터페이스 초안입니다. 세부 동작과 출력 형식은 구현 과정에서 바뀔 수 있습니다.
+
+지정한 캐시 노드 또는 그룹을 목표 버전으로 순차 업그레이드합니다.
+
+### 명령 형식
+
+```sh
+arcusctl cluster upgrade <servicecode> --version <version> <target>
+```
+
+```text
+<target>: --node <host>:<port>[,...] | --group <group-name>[,...] | --all
+```
+
+- `--version`은 필수이며, 적용할 버전을 지정합니다.
+- `<target>`은 필수이며, `--node`, `--group`, `--all` 중 정확히 하나를 지정해야 합니다. 실수로 클러스터 전체를 일괄 업그레이드하는 것을 막기 위해 대상을 생략할 수 없습니다.
+- `--node`, `--group`, `--all`은 함께 사용할 수 없습니다. 여러 대상을 선택할 때는 comma로 구분합니다.
+- `--all`은 클러스터의 모든 캐시 서버를 대상으로 하되, 이미 목표 버전으로 정상 동작하는 대상은 건너뛰고 남은 대상만 업그레이드합니다. 일부 대상을 먼저 업그레이드한 뒤 나머지를 마무리할 때 사용합니다.
+- 실서비스 환경에서는 다음 방식으로 업그레이드하는 것을 권장합니다.
+  - 클러스터 노드/그룹 개수 기준으로 1% -> 20% -> 100% 로 점차 확대하여 업그레이드합니다. 각 업그레이드 시점 사이에는 일정 기간을 두고 정상 동작하는지 확인합니다.
+  - Community 클러스터의 노드 업그레이드 시 하나씩 `업그레이드 -> 상태 확인 -> 일정 시간 대기` 순서로 진행합니다. Enterprise 클러스터와 달리 업그레이드 시 데이터가 사라지기 때문에 동시에 여러 노드가 재구동되는 경우 캐시 미스가 발생할 확률이 높아지기 때문입니다.
+- 테스트 환경에서는 편의를 위해 여러 노드/그룹을 한꺼번에 업그레이드할 수 있습니다.
+
+### 실행 예시
+
+#### Community
+
+```sh
+arcusctl cluster upgrade my-cluster --version 1.16.2 --node 192.0.2.21:11211
+arcusctl cluster upgrade my-cluster --version 1.16.2 --node 192.0.2.21:11211,192.0.2.22:11211
+arcusctl cluster upgrade my-cluster --version 1.16.2 --all
+```
+
+- `--node`로 업그레이드할 캐시 서버를 지정합니다. 여러 캐시 서버를 지정하면 나열한 순서대로 업그레이드합니다.
+- `--group`은 사용할 수 없습니다.
+
+각 캐시 서버는 다음 순서로 업그레이드합니다.
+
+```
+캐시 서버 stop -> 목표 버전으로 start -> 실행 버전 및 클러스터 편입 확인(cache_list)
+```
+
+> [!NOTE]
+> 업그레이드 작업은 한 번에 모든 노드를 대상으로 하기보다는,
+> 일부 노드들만 먼저 업그레이드하여 클러스터가 정상적으로 동작하는지 확인하고
+> 나머지 노드들을 최종적으로 업그레이드하는 방식을 권장합니다.
+
+#### Enterprise
+
+```sh
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --group g1
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --group g1,g2
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --all
+```
+
+- `--group`으로 업그레이드할 replication group을 지정합니다. 여러 group을 지정하면 나열한 순서대로 업그레이드합니다.
+- `--node`는 사용할 수 없습니다.
+- 내부적으로 업그레이드 작업 수행 시 그룹 내의 `master` 역할의 노드는 절대 업그레이드하지 않습니다. 반드시 switchover 명령을 통해 slave 역할로 변경한 후 업그레이드 과정을 거칩니다. 단, master만 있는 그룹의 경우 역할 변경 없이 업그레이드가 진행되며 이로 인해 데이터는 유실됩니다.
+- 한 그룹 내 노드들의 버전이 일치하지 않는 경우여도 각각 목표 버전으로 업그레이드하도록 합니다.
+
+각 복제 그룹은 다음 순서로 업그레이드합니다.
+
+1. 업그레이드 대상 그룹의 역할과 복제 상태(SYNC_RUN)를 확인합니다.
+2. 현재 `slave`를 중지합니다.
+3. 목표 버전으로 `slave`를 시작하고 데이터 동기화가 완료(SYNC_RUN)되었는지 확인합니다.
+4. 새 버전 `slave`를 `master`로 switchover하고 역할과 복제 상태를 확인합니다.
+5. `slave`가 된 기존 `master`에도 2~4번 작업을 반복합니다.
+6. Group 내 모든 캐시 서버가 목표 버전으로 정상 동작하는지 확인한 뒤 다음 group으로 진행합니다.
+
+> [!NOTE]
+> 업그레이드 작업은 한 번에 모든 그룹을 대상으로 하기보다는,
+> 일부 그룹들만 먼저 업그레이드하여 클러스터가 정상적으로 동작하는지 확인하고
+> 나머지 그룹들을 최종적으로 업그레이드하는 방식을 권장합니다.
+
+### Plan 출력
+
+업그레이드를 시작하기 전에 대상별 현재 버전, 목표 버전, 수행할 동작을 출력하고 진행 여부를 확인합니다.
+이미 목표 버전으로 동작하는 노드는 `skip` 표시하므로, 실제로 업그레이드될 노드 목록을 확인할 수 있습니다.
+
+#### Community
+
+```sh
+arcusctl cluster upgrade my-cluster --version 1.16.2 --all
+```
+
+```text
+Arcus cluster "my-cluster" will be upgraded.
+
+ADDRESS           CURRENT  TARGET  ACTION
+192.0.2.21:11211  1.16.2   1.16.2  skip
+192.0.2.22:11211  1.16.1   1.16.2  upgrade
+192.0.2.23:11211  1.16.1   1.16.2  upgrade
+
+Proceed with upgrade? (y/N):
+```
+
+#### Enterprise
+
+```sh
+arcusctl cluster upgrade my-repl-cluster --version 0.12.2-E --all
+```
+
+Enterprise 클러스터는 replication group 단위로 업그레이드 가능합니다.
+이미 목표 버전으로 동작하는 노드는 마찬가지로 `skip` 표시하므로 실제로 업그레이드될 그룹 목록을 확인할 수 있습니다.
+
+```text
+Arcus cluster "my-repl-cluster" will be upgraded.
+
+GROUP  ROLE    ADDRESS           CURRENT   TARGET    ACTION
+g1     master  192.0.2.22:11211  0.12.2-E  0.12.2-E  skip
+g1     slave   192.0.2.21:11211  0.12.2-E  0.12.2-E  skip
+g2     master  192.0.2.23:11211  0.12.1-E  0.12.2-E  upgrade
+g2     slave   192.0.2.24:11211  0.12.1-E  0.12.2-E  upgrade
+
+Proceed with upgrade? (y/N):
+```
+
+### 바이너리 준비 시점
+
+upgrade 명령 수행 시 목표 버전 바이너리는 캐시 서버 중지 작업 전에 모든 대상 노드/그룹의 원격 장비에 준비해둡니다.
+
+```text
+plan 출력 및 확인 -> 대상 원격 장비 전체에 목표 버전 설치 -> 대상별 순차 업그레이드 시작
+```
+
+- 빌드는 `deploy`와 같은 방식으로 원격 장비마다 한 번만 수행하고, `<path>/<version>/bin/memcached`가 이미 있으면 재사용합니다.
+- 설치가 하나라도 실패하면 캐시 노드 상태를 변경하지 않은 채 종료됩니다.
+- 기존 버전 설치는 삭제하지 않습니다. 만약 해당 버전을 더 이상 사용하지 않는 경우 직접 제거해주어야 합니다.
+- 이전 버전으로 되돌려야 하는 경우에는 upgrade 명령에 이전 버전을 지정해 사용합니다.
+
+### 공통 동작
+
+- 버전별 설치 경로(`<path>/<version>`)를 사용하고, 캐시 서버별 실행 버전을 관리합니다.
+- 이미 목표 버전으로 정상 동작하는 캐시 노드/그룹은 건너뜁니다.
+- 각 단계의 결과와 캐시 서버별 버전을 운영 장비의 메타데이터 파일(meta.yml)에 기록합니다.
+
+### 업그레이드 실패 시 확인
+
+> [!WARNING]
+> 업그레이드 중 오류가 발생해도 완료된 작업은 자동으로 롤백되지 않습니다.
+
+시작, 클러스터 편입, 동기화, switchover 확인 중 하나라도 실패하면 추가 작업을 중단하고 완료·실패·미처리 대상을 출력합니다.
+원인을 해결한 뒤 같은 명령을 다시 실행하면 해당 상태를 기준으로 업그레이드 작업을 다시 수행합니다.
+
+### 기존 명령과의 연계
+
+`upgrade`를 지원하면서 클러스터 안에 여러 버전이 함께 존재할 수 있습니다. 이에 맞춰 기존 명령의 버전 처리도 다음과 같이 바뀝니다.
+
+| 명령 | 변경 내용 |
+|-|-|
+| `start`     | 캐시 서버별로 기록된 버전으로 시작합니다. |
+| `stop`      | PID 파일을 캐시 서버별로 기록된 버전 기반으로 찾은 후 중지합니다. |
+| `delete`    | 실행 여부 확인과 `--purge` 대상 경로를 캐시 서버별 버전 기준으로 판단합니다. |
+| `list`      | 버전 정보 표시를 제거합니다. |
+| `status`    | 캐시 서버별 버전 정보를 표시합니다. |
+
+#### `status` 출력
+
+`status`는 캐시 서버별 버전을 `VERSION` 열에 표시합니다.
+
+```text
+Arcus cluster "my-repl-cluster"
+
+GROUP  ROLE    ADDRESS           VERSION   PROCESS_STATUS  ZK_REGISTERED
+g1     master  192.0.2.22:11211  0.12.2-E  running         yes
+g1     slave   192.0.2.21:11211  0.12.2-E  running         yes
+g2     master  192.0.2.23:11211  0.12.1-E  running         yes
+g2     slave   192.0.2.24:11211  0.12.1-E  running         yes
+```
+
+- 실행 중인 캐시 서버는 프로세스에 `version` 명령을 보내 실제 실행 버전을 표시합니다.
+- 중지된 캐시 서버는 메타데이터에 기록된 버전, 즉 다음 `start` 시 사용할 버전을 표시합니다.
+- 실제 실행 버전과 기록된 버전이 다르면 경고를 함께 출력합니다.
+
 ## `cluster delete`
 
 Arcus 클러스터를 삭제합니다.
